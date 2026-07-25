@@ -59,3 +59,11 @@ def test_delete_airport_only_removes_own_watch(client):
 
     alice.post("/airports/1/delete")
     assert "EDDF" not in alice.get("/airports").text
+
+
+def test_add_airport_falls_back_to_default_radius_on_invalid_value(client):
+    register(client, "alice@example.com")
+    client.post("/airports", data={"icao": "EDDF", "radius_km": "not-a-number"})
+
+    page = client.get("/airports")
+    assert "15" in page.text  # default radius, since the given value didn't parse

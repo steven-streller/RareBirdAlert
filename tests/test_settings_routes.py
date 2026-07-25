@@ -47,3 +47,32 @@ def test_test_notification_rejects_unknown_channel(client):
     register(client, "alice@example.com")
     resp = client.post("/settings/test/not-a-real-channel", follow_redirects=False)
     assert resp.headers["location"] == "/settings?tested=fail"
+
+
+def test_settings_page_shows_flash_for_successful_test(client):
+    register(client, "alice@example.com")
+    page = client.get("/settings?tested=ok")
+    assert "Test-Benachrichtigung gesendet." in page.text
+
+
+def test_settings_page_shows_flash_for_failed_test(client):
+    register(client, "alice@example.com")
+    page = client.get("/settings?tested=fail")
+    assert "Test-Benachrichtigung fehlgeschlagen" in page.text
+
+
+def test_save_settings_persists_channel_checkbox_field(client):
+    register(client, "alice@example.com")
+    client.post(
+        "/settings",
+        data={
+            "_section": "email",
+            "email_enabled": "on",
+            "email_smtp_host": "smtp.example.com",
+            "email_to": "dest@example.com",
+            "email_use_tls": "on",
+        },
+    )
+
+    page = client.get("/settings")
+    assert 'name="email_use_tls" checked' in page.text

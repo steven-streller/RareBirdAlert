@@ -1,6 +1,12 @@
 from tests.conftest import register
 
 
+def test_healthz_does_not_require_login(client):
+    resp = client.get("/healthz")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
 def test_unauthenticated_dashboard_redirects_to_login(client):
     resp = client.get("/", follow_redirects=False)
     assert resp.status_code == 303
@@ -85,3 +91,17 @@ def test_logout_clears_session(client):
     resp = client.get("/", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"
+
+
+def test_register_page_redirects_when_already_logged_in(client):
+    register(client, "gina@example.com")
+    resp = client.get("/register", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/"
+
+
+def test_login_page_redirects_when_already_logged_in(client):
+    register(client, "hank@example.com")
+    resp = client.get("/login", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/"

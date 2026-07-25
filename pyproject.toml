@@ -16,3 +16,15 @@ testpaths = ["tests"]
 # the repo root on sys.path, so `from app...` imports fail in conftest.py -
 # this is what CI invokes, so it must work without the `-m` form too.
 pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+# CI runs `pytest --cov=app`, which then fails the build below this - see
+# docs/contributing.md for the rationale on why 80% and not "as high as
+# possible": this project is small enough that a handful of genuinely
+# untestable lines (background scheduler startup, log filters) would make a
+# 100% target counterproductive to chase.
+fail_under = 80
+show_missing = true

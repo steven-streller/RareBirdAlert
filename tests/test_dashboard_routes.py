@@ -1,5 +1,8 @@
+from datetime import date, timedelta
+
 from sqlmodel import Session, select
 
+from app.main import _day_label
 from app.models import Airport, AirportWatch, Sighting, SightingMatch, User
 from tests.conftest import register
 
@@ -37,3 +40,19 @@ def test_dashboard_omits_skybrary_link_without_typecode(client, test_engine):
     page = client.get("/")
 
     assert "skybrary.aero" not in page.text
+
+
+def test_day_label_today():
+    today = date(2026, 7, 25)
+    assert _day_label(today, today) == "Heute"
+
+
+def test_day_label_yesterday():
+    today = date(2026, 7, 25)
+    assert _day_label(today - timedelta(days=1), today) == "Gestern"
+
+
+def test_day_label_older_uses_weekday_name():
+    today = date(2026, 7, 25)  # a Saturday
+    older = today - timedelta(days=3)  # the preceding Wednesday
+    assert _day_label(older, today) == "Mittwoch"

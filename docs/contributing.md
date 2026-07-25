@@ -6,7 +6,7 @@
 direkte Pushes werden abgelehnt (auch für Repo-Admins). Zum Mergen müssen
 zwei Status-Checks grün sein:
 
-- `lint-and-test` – `ruff check .` + `pytest`
+- `lint-and-test` – `ruff check .` + `pytest` (mit Coverage-Gate, siehe [Tests](#tests))
 - `docker-build` – das Image muss bauen
 
 Es ist kein Review-Approval erforderlich, damit auch Solo-Änderungen ohne
@@ -60,6 +60,17 @@ def test_my_new_route(client):
 Tests, die OpenSky- oder Netzwerk-Aufrufe berühren, mocken diese immer
 (siehe `tests/test_opensky_client.py`) – der Testlauf darf nie vom Internet
 abhängen.
+
+### Coverage
+
+CI läuft mit `pytest --cov=app --cov-report=term-missing` und schlägt fehl,
+wenn die Gesamt-Coverage unter 80 % fällt (`fail_under` in `pyproject.toml`).
+Lokal genauso mit `--cov=app --cov-report=term-missing` prüfen, um zu sehen,
+welche Zeilen eine neue Änderung noch nicht abdeckt. Bewusst nicht auf 100 %
+gesetzt: ein paar Zeilen (z. B. der echte Scheduler-Start beim App-Boot) sind
+nur mit unverhältnismäßigem Aufwand oder Testflakiness sauber zu testen –
+80 % ist die Schwelle, die reale Lücken auffängt, ohne dazu zu verleiten,
+Tests nur für die Zahl zu schreiben.
 
 ## Abhängigkeiten
 
