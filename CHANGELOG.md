@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.5...v0.1.6) (2026-07-25)
+
+
+### Features
+
+* enrich matched sightings with flight route via adsbdb.com ([#28](https://github.com/steven-streller/RareBirdAlert/issues/28)) ([1819f2d](https://github.com/steven-streller/RareBirdAlert/commit/1819f2db7bcc37c604059412cb94941541269037))
+
 ## [0.1.5](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.4...v0.1.5) (2026-07-25)
 
 
