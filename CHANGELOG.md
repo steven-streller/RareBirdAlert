@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.3...v0.1.4) (2026-07-25)
+
+
+### Features
+
+* add airplanes.live as a third data source ([#23](https://github.com/steven-streller/RareBirdAlert/issues/23)) ([0c4183a](https://github.com/steven-streller/RareBirdAlert/commit/0c4183abe4887500fc9b97fb0d0e73a0fed17b03))
+
 ## [0.1.3](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.2...v0.1.3) (2026-07-25)
 
 
