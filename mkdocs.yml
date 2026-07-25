@@ -51,6 +51,7 @@ nav:
   - Datenquelle (OpenSky): data-sources.md
   - Watchlist: watchlist.md
   - Benachrichtigungskanäle: notifications.md
+  - Monitoring: monitoring.md
   - FAQ: faq.md
   - Architektur: architecture.md
   - Mitwirken: contributing.md

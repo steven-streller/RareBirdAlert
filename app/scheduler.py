@@ -5,7 +5,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlmodel import Session, select
 
-from app import adsbdb, aircraft_db, flight_sources, planespotters
+from app import adsbdb, aircraft_db, flight_sources, metrics, planespotters
 from app.db import engine, get_setting, get_user_setting
 from app.matcher import AircraftInfo, matches
 from app.models import (
@@ -108,6 +108,7 @@ def _process_state(
         photo_link=photo.get("link") if photo else None,
     )
     session.add(sighting)
+    metrics.sightings_total.inc()
     session.flush()  # assigns sighting.id, needed for the SightingMatch rows below
 
     for category_key, watchlist_entry_id, label in match_hits:
@@ -128,6 +129,7 @@ def _process_state(
     )
 
 
+@metrics.poll_duration_seconds.time()
 def poll_job() -> None:
     with Session(engine) as session:
         watches = session.exec(select(AirportWatch)).all()

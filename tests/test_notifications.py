@@ -1,5 +1,6 @@
 from sqlmodel import Session, SQLModel, create_engine
 
+from app import metrics
 from app.db import set_user_setting
 from app.notifications import CHANNELS, enabled_channels, notify_all
 
@@ -35,6 +36,19 @@ def test_notify_all_reports_false_for_unconfigured_enabled_channel():
     # discord_webhook_url intentionally left blank -> must fail without a network call
     results = notify_all(session, 1, "Titel", "Nachricht")
     assert results == {"discord": False}
+
+
+def test_notify_all_increments_the_notifications_sent_metric_with_result_label():
+    # Counters are process-wide singletons shared across the whole test
+    # session, so assert on the delta rather than an absolute value.
+    before = metrics.notifications_sent_total.labels(channel="discord", result="fail")._value.get()
+
+    session = make_session()
+    set_user_setting(session, 1, "discord_enabled", "true")
+    notify_all(session, 1, "Titel", "Nachricht")  # webhook URL blank -> fails without a network call
+
+    after = metrics.notifications_sent_total.labels(channel="discord", result="fail")._value.get()
+    assert after == before + 1
 
 
 def test_user_settings_are_isolated_between_users():
