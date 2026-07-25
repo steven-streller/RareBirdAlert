@@ -123,6 +123,21 @@ Parser). **Kein API-Key nötig**, standardmäßig aktiviert.
 - Liefert keinen Betreiber (`operator`) - dafür wird weiterhin die
   Flugzeug-Metadatenbank herangezogen.
 
+## Flugroute (adsbdb.com)
+
+Zusätzlich zu den Live-Positionsquellen fragt RareBirdAlert bei
+[adsbdb.com](https://www.adsbdb.com/) (kostenlos, kein API-Key nötig) die
+Flugroute zum Callsign ab - **aber nur für tatsächlich als "besonders"
+erkannte Sichtungen**, nicht für jedes gepollte Flugzeug. Ist die Route
+bekannt, tauchen Start- und Zielflughafen (ICAO-Code und Name) im
+Sichtungs-Feed und in der Benachrichtigung auf, z. B. „Route: EDDF → EDDM“.
+
+Das ist Fahrplan-/Schedule-Wissen zum Callsign, keine Live-Positionsdaten -
+bei unbekanntem Callsign, fehlendem Callsign oder einem nicht erreichbaren
+adsbdb.com bleibt die Route einfach leer; das ist ein rein optionales
+Zusatzfeature und blockiert nie die eigentliche Sichtungs-Erkennung oder
+Benachrichtigung.
+
 ## Flugzeug-Metadatenbank
 
 Betreiber-Informationen sowie Typ/Kennung als Fallback (wenn keine aktivierte

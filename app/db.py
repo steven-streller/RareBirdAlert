@@ -149,6 +149,26 @@ def _ensure_user_is_admin_column() -> None:
             conn.commit()
 
 
+def _ensure_sighting_route_columns() -> None:
+    """Same rationale as _ensure_user_is_admin_column - the route_* columns
+    on Sighting (adsbdb.com enrichment) were added after the initial release,
+    so existing databases need them backfilled by hand.
+    """
+    with engine.connect() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(sighting)").fetchall()}
+        if not columns:
+            return
+        for column in (
+            "route_origin_icao",
+            "route_origin_name",
+            "route_destination_icao",
+            "route_destination_name",
+        ):
+            if column not in columns:
+                conn.exec_driver_sql(f"ALTER TABLE sighting ADD COLUMN {column} TEXT")
+        conn.commit()
+
+
 def _ensure_admin_exists(session: Session) -> None:
     """Guarantees exactly one admin exists after every startup.
 
@@ -170,6 +190,7 @@ def init_db() -> None:
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     SQLModel.metadata.create_all(engine)
     _ensure_user_is_admin_column()
+    _ensure_sighting_route_columns()
     with Session(engine) as session:
         for category in CATEGORIES:
             existing = session.exec(
