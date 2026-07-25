@@ -17,6 +17,9 @@
         <a href="/map" class="{{ 'active' if active == 'map' else '' }}">Karte</a>
         <a href="/watchlist" class="{{ 'active' if active == 'watchlist' else '' }}">Watchlist</a>
         <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Einstellungen</a>
+        {% if current_user.is_admin %}
+        <a href="/admin" class="{{ 'active' if active == 'admin' else '' }}">Admin</a>
+        {% endif %}
         <span class="nav-user">{{ current_user.email }}</span>
         <form method="post" action="/logout" class="nav-logout">
             <button type="submit" class="link-button">Abmelden</button>

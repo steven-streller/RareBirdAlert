@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import flight_sources
-from app.auth import get_current_user, login_user, logout_user, require_user
+from app.auth import get_current_user, login_user, logout_user, require_admin, require_user
 from app.db import (
     engine,
     get_effective_setting,
@@ -122,7 +122,8 @@ async def register(request: Request):
     with Session(engine) as session:
         if session.exec(select(User).where(User.email == email)).first():
             return RedirectResponse(url="/register?error=taken", status_code=303)
-        user = User(email=email, password_hash=hash_password(password))
+        is_first_user = session.exec(select(User)).first() is None
+        user = User(email=email, password_hash=hash_password(password), is_admin=is_first_user)
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -466,7 +467,7 @@ def delete_watchlist_entry(entry_id: int, current_user: User = Depends(require_u
     return RedirectResponse(url="/watchlist", status_code=303)
 
 
-# --- Settings -----------------------------------------------------------------
+# --- Settings (personal notification channels) --------------------------------
 
 # checkbox settings keys that are absent from form data when unchecked
 CHANNEL_CHECKBOX_FIELDS = {
@@ -474,20 +475,14 @@ CHANNEL_CHECKBOX_FIELDS = {
 }
 CHANNEL_TEXT_KEYS = [key for channel in CHANNELS.values() for key in channel["keys"]]
 
-SOURCE_ANCHORS = tuple(f"source_{key}" for key in flight_sources.SOURCES)
-ALLOWED_SETTINGS_ANCHORS = ("general", *SOURCE_ANCHORS, *CHANNELS)
 
-
-def _safe_settings_anchor(value: str) -> str:
+def _safe_channel_anchor(value: str) -> str:
     """Map arbitrary input onto a known-safe literal for use in a redirect URL/anchor.
 
-    Returns one of the ALLOWED_SETTINGS_ANCHORS literals, never the input itself,
-    so the redirect target can't carry attacker-controlled data (CWE-601).
+    Never returns the input itself, so the redirect target can't carry
+    attacker-controlled data (CWE-601).
     """
-    for allowed in ALLOWED_SETTINGS_ANCHORS:
-        if allowed == value:
-            return allowed
-    return "general"
+    return value if value in CHANNELS else "general"
 
 
 @app.get("/settings")
@@ -498,26 +493,13 @@ def settings_page(
     current_user: User = Depends(require_user),
 ):
     with Session(engine) as session:
-        settings = {"poll_interval_seconds": get_setting(session, "poll_interval_seconds")}
+        settings = {}
         for key in list(CHANNEL_CHECKBOX_FIELDS) + [f"{c}_enabled" for c in CHANNELS] + CHANNEL_TEXT_KEYS:
             settings[key] = get_user_setting(session, current_user.id, key)
 
-        source_settings = {}
-        for key, source in flight_sources.SOURCES.items():
-            source_settings[f"source_enabled_{key}"] = get_setting(session, f"source_enabled_{key}")
-            for field_key in source["keys"]:
-                value, locked = get_effective_setting(session, field_key)
-                source_settings[field_key] = value
-                source_settings[f"{field_key}__locked"] = locked
-
     flash = None
     if saved:
-        if saved in CHANNELS:
-            label = CHANNELS[saved]["label"]
-        elif saved.removeprefix("source_") in flight_sources.SOURCES:
-            label = flight_sources.SOURCES[saved.removeprefix("source_")]["label"]
-        else:
-            label = "Allgemein"
+        label = CHANNELS[saved]["label"] if saved in CHANNELS else "Einstellungen"
         flash = f"„{label}“ gespeichert."
     elif tested == "ok":
         flash = "Test-Benachrichtigung gesendet."
@@ -532,8 +514,6 @@ def settings_page(
             "current_user": current_user,
             "settings": settings,
             "channels": CHANNELS,
-            "sources": flight_sources.SOURCES,
-            "source_settings": source_settings,
             "flash": flash,
         },
     )
@@ -541,6 +521,97 @@ def settings_page(
 
 @app.post("/settings")
 async def save_settings(request: Request, current_user: User = Depends(require_user)):
+    form = await request.form()
+    section = form.get("_section", "")
+
+    if section in CHANNELS:
+        with Session(engine) as session:
+            set_user_setting(
+                session,
+                current_user.id,
+                f"{section}_enabled",
+                "true" if form.get(f"{section}_enabled") else "false",
+            )
+            for key in CHANNELS[section]["keys"]:
+                if key in CHANNEL_CHECKBOX_FIELDS:
+                    set_user_setting(session, current_user.id, key, "true" if form.get(key) else "false")
+                else:
+                    set_user_setting(session, current_user.id, key, str(form.get(key, "")).strip())
+
+    anchor = _safe_channel_anchor(section)
+    return RedirectResponse(url=f"/settings?saved={anchor}#{anchor}", status_code=303)
+
+
+@app.post("/settings/test/{channel}")
+def test_notification(channel: str, current_user: User = Depends(require_user)):
+    if channel not in CHANNELS:
+        return RedirectResponse(url="/settings?tested=fail", status_code=303)
+    with Session(engine) as session:
+        ok = send_to_channel(
+            session, current_user.id, channel, "RareBirdAlert Test", "Testbenachrichtigung von RareBirdAlert 🛩️"
+        )
+    anchor = _safe_channel_anchor(channel)
+    return RedirectResponse(url=f"/settings?tested={'ok' if ok else 'fail'}#{anchor}", status_code=303)
+
+
+# --- Admin (global infrastructure, admin account only) -------------------------
+
+SOURCE_ANCHORS = tuple(f"source_{key}" for key in flight_sources.SOURCES)
+ALLOWED_ADMIN_ANCHORS = ("general", *SOURCE_ANCHORS)
+
+
+def _safe_admin_anchor(value: str) -> str:
+    """Same CWE-601 concern as _safe_channel_anchor above, for the admin page."""
+    for allowed in ALLOWED_ADMIN_ANCHORS:
+        if allowed == value:
+            return allowed
+    return "general"
+
+
+@app.get("/admin")
+def admin_page(
+    request: Request,
+    saved: str = "",
+    polled: str = "",
+    current_user: User = Depends(require_admin),
+):
+    with Session(engine) as session:
+        settings = {"poll_interval_seconds": get_setting(session, "poll_interval_seconds")}
+
+        source_settings = {}
+        for key, source in flight_sources.SOURCES.items():
+            source_settings[f"source_enabled_{key}"] = get_setting(session, f"source_enabled_{key}")
+            for field_key in source["keys"]:
+                value, locked = get_effective_setting(session, field_key)
+                source_settings[field_key] = value
+                source_settings[f"{field_key}__locked"] = locked
+
+    flash = None
+    if saved:
+        if saved.removeprefix("source_") in flight_sources.SOURCES:
+            label = flight_sources.SOURCES[saved.removeprefix("source_")]["label"]
+        else:
+            label = "Allgemein"
+        flash = f"„{label}“ gespeichert."
+    elif polled:
+        flash = "Poll-Zyklus manuell angestoßen."
+
+    return templates.TemplateResponse(
+        request,
+        "admin.html",
+        {
+            "active": "admin",
+            "current_user": current_user,
+            "settings": settings,
+            "sources": flight_sources.SOURCES,
+            "source_settings": source_settings,
+            "flash": flash,
+        },
+    )
+
+
+@app.post("/admin")
+async def save_admin_settings(request: Request, current_user: User = Depends(require_admin)):
     form = await request.form()
     section = form.get("_section", "general")
 
@@ -556,36 +627,12 @@ async def save_settings(request: Request, current_user: User = Depends(require_u
                 _current_value, locked = get_effective_setting(session, field_key)
                 if not locked:
                     set_setting(session, field_key, str(form.get(field_key, "")).strip())
-        elif section in CHANNELS:
-            set_user_setting(
-                session,
-                current_user.id,
-                f"{section}_enabled",
-                "true" if form.get(f"{section}_enabled") else "false",
-            )
-            for key in CHANNELS[section]["keys"]:
-                if key in CHANNEL_CHECKBOX_FIELDS:
-                    set_user_setting(session, current_user.id, key, "true" if form.get(key) else "false")
-                else:
-                    set_user_setting(session, current_user.id, key, str(form.get(key, "")).strip())
 
-    anchor = _safe_settings_anchor(section)
-    return RedirectResponse(url=f"/settings?saved={anchor}#{anchor}", status_code=303)
-
-
-@app.post("/settings/test/{channel}")
-def test_notification(channel: str, current_user: User = Depends(require_user)):
-    if channel not in CHANNELS:
-        return RedirectResponse(url="/settings?tested=fail", status_code=303)
-    with Session(engine) as session:
-        ok = send_to_channel(
-            session, current_user.id, channel, "RareBirdAlert Test", "Testbenachrichtigung von RareBirdAlert 🛩️"
-        )
-    anchor = _safe_settings_anchor(channel)
-    return RedirectResponse(url=f"/settings?tested={'ok' if ok else 'fail'}#{anchor}", status_code=303)
+    anchor = _safe_admin_anchor(section)
+    return RedirectResponse(url=f"/admin?saved={anchor}#{anchor}", status_code=303)
 
 
 @app.post("/poll-now")
-def poll_now(current_user: User = Depends(require_user)):
+def poll_now(current_user: User = Depends(require_admin)):
     poll_job()
-    return RedirectResponse(url="/settings", status_code=303)
+    return RedirectResponse(url="/admin?polled=1", status_code=303)
