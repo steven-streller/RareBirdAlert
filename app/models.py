@@ -107,6 +107,12 @@ class Sighting(SQLModel, table=True):
     route_origin_name: Optional[str] = None
     route_destination_icao: Optional[str] = None
     route_destination_name: Optional[str] = None
+    # Best-effort photo enrichment from planespotters.net, looked up by
+    # icao24 at match time (see app/planespotters.py) - None when unknown or
+    # the lookup failed.
+    photo_thumbnail_url: Optional[str] = None
+    photo_large_url: Optional[str] = None
+    photo_link: Optional[str] = None
 
 
 class SightingMatch(SQLModel, table=True):

@@ -15,6 +15,15 @@
         <div class="timeline-row">
             <div class="timeline-time">{{ row.sighting.landed_at.strftime('%H:%M') }}</div>
             <div class="timeline-content">
+                {% if row.sighting.photo_thumbnail_url %}
+                <a href="{{ row.sighting.photo_link }}" target="_blank" rel="noopener">
+                    <img
+                        src="{{ row.sighting.photo_thumbnail_url }}"
+                        alt="Foto: {{ row.sighting.typecode or row.sighting.icao24 }}"
+                        class="sighting-photo"
+                    />
+                </a>
+                {% endif %}
                 <div class="timeline-head">
                     <span class="airport-tag">{{ row.airport.icao if row.airport else '?' }}</span>
                     <span class="callsign">{{ row.sighting.callsign or row.sighting.icao24 }}</span>

@@ -138,6 +138,20 @@ adsbdb.com bleibt die Route einfach leer; das ist ein rein optionales
 Zusatzfeature und blockiert nie die eigentliche Sichtungs-Erkennung oder
 Benachrichtigung.
 
+## Flugzeugfoto (planespotters.net)
+
+Genau wie die Flugroute wird bei einer erkannten Sichtung zusätzlich ein
+Spotter-Foto bei [planespotters.net](https://www.planespotters.net/) über
+deren öffentliche, kostenlose API abgefragt (nach ICAO24-Hexcode, kein
+API-Key nötig, aber ein aussagekräftiger `User-Agent`-Header ist Pflicht -
+generische Library-User-Agents werden mit `403` abgelehnt). Ist ein Foto
+bekannt, erscheint ein Thumbnail im Sichtungs-Feed, verlinkt auf die volle
+Fotoseite; dieser Link wird außerdem als Klick-Ziel der Benachrichtigung
+mitgeschickt (bei Kanälen, die das unterstützen, z. B. Pushover, ntfy).
+
+Auch das ist rein optional: ohne gefundenes Foto bleibt das Feld leer, ohne
+dass die Sichtungs-Erkennung oder Benachrichtigung davon betroffen wäre.
+
 ## Flugzeug-Metadatenbank
 
 Betreiber-Informationen sowie Typ/Kennung als Fallback (wenn keine aktivierte

@@ -5,7 +5,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlmodel import Session, select
 
-from app import adsbdb, aircraft_db, flight_sources
+from app import adsbdb, aircraft_db, flight_sources, planespotters
 from app.db import engine, get_setting, get_user_setting
 from app.matcher import AircraftInfo, matches
 from app.models import (
@@ -90,6 +90,7 @@ def _process_state(
     # this up for every polled aircraft would be needless load against a
     # free, unauthenticated API for traffic nobody cares about.
     route = adsbdb.fetch_route(state.callsign) if state.callsign else None
+    photo = planespotters.fetch_photo(state.icao24)
 
     sighting = Sighting(
         airport_id=airport.id,
@@ -102,6 +103,9 @@ def _process_state(
         route_origin_name=route.get("origin_name") if route else None,
         route_destination_icao=route.get("destination_icao") if route else None,
         route_destination_name=route.get("destination_name") if route else None,
+        photo_thumbnail_url=photo.get("thumbnail_url") if photo else None,
+        photo_large_url=photo.get("large_url") if photo else None,
+        photo_link=photo.get("link") if photo else None,
     )
     session.add(sighting)
     session.flush()  # assigns sighting.id, needed for the SightingMatch rows below
@@ -224,7 +228,7 @@ def notify_check_job() -> None:
                         f"\nRoute: {sighting.route_origin_icao or '?'} → "
                         f"{sighting.route_destination_icao or '?'}"
                     )
-                results = notify_all(session, user.id, title, message)
+                results = notify_all(session, user.id, title, message, url=sighting.photo_link)
                 if any(results.values()):
                     session.add(NotificationLog(user_id=user.id, sighting_id=sighting.id))
                     session.commit()

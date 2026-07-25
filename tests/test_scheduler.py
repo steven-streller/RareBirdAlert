@@ -191,6 +191,45 @@ def test_notify_check_job_includes_route_info_in_message(test_engine, monkeypatc
     assert "Route: EDDF → EDDM" in captured["message"]
 
 
+def test_notify_check_job_passes_the_photo_link_as_the_notification_url(test_engine, monkeypatch):
+    captured = {}
+
+    def fake_notify_all(session, user_id, title, message, url=None):
+        captured["url"] = url
+        return {"webhook": True}
+
+    monkeypatch.setattr(scheduler, "notify_all", fake_notify_all)
+
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        user = User(email="photo-watcher@example.com", password_hash="x")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        session.add(AirportWatch(user_id=user.id, airport_id=airport.id, radius_km=15))
+        set_user_setting(session, user.id, "webhook_enabled", "true")
+
+        sighting = Sighting(
+            airport_id=airport.id,
+            icao24="abc123",
+            callsign="GAF123",
+            typecode="EUFI",
+            photo_link="https://www.planespotters.net/photo/1",
+        )
+        session.add(sighting)
+        session.commit()
+        session.refresh(sighting)
+        session.add(
+            SightingMatch(sighting_id=sighting.id, category_key="eurofighter_typhoon", label="Eurofighter Typhoon")
+        )
+        session.commit()
+
+    scheduler.notify_check_job()
+
+    assert captured["url"] == "https://www.planespotters.net/photo/1"
+
+
 def test_notify_check_job_omits_route_line_when_no_route_found(test_engine, monkeypatch):
     captured = {}
 
@@ -442,6 +481,60 @@ def test_process_state_skips_route_lookup_without_callsign(test_engine, monkeypa
 
         sighting = session.exec(select(Sighting)).first()
         assert sighting.route_origin_icao is None
+
+
+def test_process_state_enriches_sighting_with_photo_on_match(test_engine, monkeypatch):
+    monkeypatch.setattr(
+        scheduler.aircraft_db,
+        "lookup",
+        lambda icao24: {"typecode": "EUFI", "registration": "31+00", "operator": "Luftwaffe"},
+    )
+    captured_icao24s = []
+
+    def fake_fetch_photo(icao24):
+        captured_icao24s.append(icao24)
+        return {
+            "thumbnail_url": "https://t.plnspttrs.net/x_t.jpg",
+            "large_url": "https://t.plnspttrs.net/x_280.jpg",
+            "link": "https://www.planespotters.net/photo/1",
+        }
+
+    monkeypatch.setattr(scheduler.planespotters, "fetch_photo", fake_fetch_photo)
+
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        category = session.exec(
+            select(AircraftCategory).where(AircraftCategory.key == "eurofighter_typhoon")
+        ).first()
+
+        state = StateVector(icao24="abc123", callsign="GAF123", on_ground=True, lat=50.0, lon=8.5)
+        scheduler._process_state(session, airport, state, [category], [])
+        session.commit()
+
+        sighting = session.exec(select(Sighting)).first()
+        assert sighting.photo_thumbnail_url == "https://t.plnspttrs.net/x_t.jpg"
+        assert sighting.photo_large_url == "https://t.plnspttrs.net/x_280.jpg"
+        assert sighting.photo_link == "https://www.planespotters.net/photo/1"
+    assert captured_icao24s == ["abc123"]
+
+
+def test_process_state_leaves_photo_fields_empty_when_none_found(test_engine, monkeypatch):
+    monkeypatch.setattr(scheduler.aircraft_db, "lookup", lambda icao24: {"typecode": "EUFI"})
+    monkeypatch.setattr(scheduler.planespotters, "fetch_photo", lambda icao24: None)
+
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        category = session.exec(
+            select(AircraftCategory).where(AircraftCategory.key == "eurofighter_typhoon")
+        ).first()
+
+        state = StateVector(icao24="abc123", callsign="GAF123", on_ground=True, lat=50.0, lon=8.5)
+        scheduler._process_state(session, airport, state, [category], [])
+        session.commit()
+
+        sighting = session.exec(select(Sighting)).first()
+        assert sighting.photo_thumbnail_url is None
+        assert sighting.photo_link is None
 
 
 def test_process_state_matches_adsb_flagged_category(test_engine, monkeypatch):

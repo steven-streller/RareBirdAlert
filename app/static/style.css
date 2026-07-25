@@ -197,6 +197,14 @@ h2 { font-size: 1.1rem; color: var(--text-dim); margin-top: 2rem; }
     flex-wrap: wrap;
 }
 
+.sighting-photo {
+    float: right;
+    width: 90px;
+    height: auto;
+    border-radius: 6px;
+    margin: 0 0 0.4rem 0.6rem;
+}
+
 /* Flughafen-/Watchlist-Zeilen */
 .item-row {
     display: flex;
