@@ -23,8 +23,8 @@ ein einziger Container, kein separater Worker/Broker.
 | `AircraftMetadata` | global, Cache | Lokale Kopie der OpenSky-Flugzeugdatenbank (Typ, Kennung, Betreiber je ICAO24) |
 | `Sighting` | global | Eine erkannte Landung eines "besonderen" Flugzeugs |
 | `SightingMatch` | global | Warum eine Sighting als besonders galt (Kategorie oder Watchlist-Eintrag) |
-| `User` | pro Account | E-Mail, bcrypt-Passworthash |
-| `Setting` | global | Aktuell nur `poll_interval_seconds` |
+| `User` | pro Account | E-Mail, bcrypt-Passworthash, `is_admin` |
+| `Setting` | global | Poll-Intervall, aktivierte Datenquellen, ggf. OpenSky-Credentials |
 | `UserSetting` | pro Nutzer | Benachrichtigungskanäle + Kategorie-Toggles |
 | `NotificationLog` | pro Nutzer | Verhindert doppelte Benachrichtigungen für dieselbe Sichtung |
 
@@ -96,6 +96,18 @@ signiert, `SESSION_SECRET_KEY`), Passwörter mit `bcrypt` gehasht. Die
 `/healthz` – bei fehlender Session ein 303-Redirect zu `/login` (inkl.
 `HX-Redirect`-Header, damit HTMX-Requests nicht nur den betroffenen
 Seitenausschnitt austauschen, sondern die ganze Seite neu laden).
+
+`require_admin` baut darauf auf (ruft `require_user` zuerst auf) und
+redirected zusätzlich nicht-Admins nach `/settings` statt `/login` - genutzt
+für `/admin` und `/poll-now`, die die geteilte Poll-/Datenquellen-Infrastruktur
+ändern. Der erste registrierte Account bekommt `is_admin=True` in der
+`/register`-Route (`app/main.py`); `db.py`s `init_db()` stellt bei jedem
+Start zusätzlich sicher, dass genau ein Admin existiert - wichtig für
+Instanzen, die vor `is_admin` bereits liefen: `SQLModel.metadata.create_all`
+legt nur fehlende Tabellen an, ändert aber nie eine bestehende, daher fügt
+`_ensure_user_is_admin_column` die Spalte per `ALTER TABLE` selbst hinzu
+(Default `False` für alle Bestandsnutzer) und `_ensure_admin_exists`
+befördert danach den ältesten Account, falls niemand mehr Admin ist.
 
 ## Benachrichtigungskanäle (`app/notifications.py`)
 

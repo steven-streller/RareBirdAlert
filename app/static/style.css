@@ -139,6 +139,8 @@ h2 { font-size: 1.1rem; color: var(--text-dim); margin-top: 2rem; }
 .callsign { font-weight: 600; }
 .aircraft-type { color: var(--text-dim); font-size: 0.9rem; }
 .match-label { color: var(--text-dim); font-size: 0.8rem; }
+.type-info-link { color: var(--accent); font-size: 0.85rem; text-decoration: none; margin-left: 0.4rem; }
+.type-info-link:hover { text-decoration: underline; }
 
 /* Sichtungs-Feed (Dashboard) */
 .day-heading {

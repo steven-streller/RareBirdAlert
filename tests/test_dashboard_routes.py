@@ -1,0 +1,39 @@
+from sqlmodel import Session, select
+
+from app.models import Airport, AirportWatch, Sighting, SightingMatch, User
+from tests.conftest import register
+
+
+def _seed_sighting(test_engine, email: str, typecode: str | None) -> None:
+    with Session(test_engine) as session:
+        user = session.exec(select(User).where(User.email == email)).first()
+        airport = Airport(icao="EDDF", name="Frankfurt", lat=50.0, lon=8.5)
+        session.add(airport)
+        session.commit()
+        session.refresh(airport)
+        session.add(AirportWatch(user_id=user.id, airport_id=airport.id, radius_km=15))
+        sighting = Sighting(airport_id=airport.id, icao24="abc123", callsign="GAF123", typecode=typecode)
+        session.add(sighting)
+        session.commit()
+        session.refresh(sighting)
+        session.add(SightingMatch(sighting_id=sighting.id, category_key="military", label="Militär"))
+        session.commit()
+
+
+def test_dashboard_shows_skybrary_link_when_typecode_known(client, test_engine):
+    register(client, "alice@example.com")
+    _seed_sighting(test_engine, "alice@example.com", typecode="EUFI")
+
+    page = client.get("/")
+
+    assert 'href="https://skybrary.aero/aircraft/eufi"' in page.text
+    assert "Info zum Typ" in page.text
+
+
+def test_dashboard_omits_skybrary_link_without_typecode(client, test_engine):
+    register(client, "alice@example.com")
+    _seed_sighting(test_engine, "alice@example.com", typecode=None)
+
+    page = client.get("/")
+
+    assert "skybrary.aero" not in page.text
