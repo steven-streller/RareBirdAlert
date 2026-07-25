@@ -36,7 +36,7 @@ jobs:
 
       - name: Upload Ruff scan results
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ruff-results.sarif
           category: ruff
@@ -61,7 +61,7 @@ jobs:
           no-fail: true
 
       - name: Upload Hadolint scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: hadolint-results.sarif
           category: hadolint
@@ -77,7 +77,7 @@ jobs:
           exit-code: "0"
 
       - name: Upload Trivy dependency scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-fs-results.sarif
           category: trivy-fs
@@ -104,7 +104,7 @@ jobs:
           exit-code: "0"
 
       - name: Upload Trivy image scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
           category: trivy-image
