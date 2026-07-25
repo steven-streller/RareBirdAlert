@@ -1,6 +1,6 @@
 from sqlmodel import Session
 
-from app import adsblol, opensky
+from app import adsblol, airplaneslive, opensky
 from app.db import get_effective_setting, get_setting
 from app.state_vector import StateVector
 
@@ -20,6 +20,11 @@ SOURCES = {
     "adsblol": {
         "label": "adsb.lol",
         "fetch": adsblol.fetch_states,
+        "fields": [],
+    },
+    "airplaneslive": {
+        "label": "airplanes.live",
+        "fetch": airplaneslive.fetch_states,
         "fields": [],
     },
 }

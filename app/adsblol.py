@@ -2,17 +2,13 @@ import logging
 
 import requests
 
+from app import adsb_json
 from app.state_vector import StateVector
 
 logger = logging.getLogger("rarebirdalert.adsblol")
 
 BASE_URL = "https://api.adsb.lol/v2/point"
 MAX_RADIUS_NM = 250
-
-# dbFlags bitmask, adsb.lol/ADSBExchange convention.
-DBFLAG_MILITARY = 1
-DBFLAG_PIA = 2
-DBFLAG_LADD = 4
 
 _session = requests.Session()
 
@@ -36,24 +32,4 @@ def fetch_states(cfg: dict, lat: float, lon: float, radius_km: float) -> list[St
         logger.error("adsb.lol request failed: %s", exc)
         return []
 
-    states = []
-    for item in data.get("ac") or []:
-        icao24 = (item.get("hex") or "").strip()
-        if not icao24:
-            continue
-        db_flags = item.get("dbFlags") or 0
-        states.append(
-            StateVector(
-                icao24=icao24.lower(),
-                callsign=(item.get("flight") or "").strip() or None,
-                on_ground=item.get("alt_baro") == "ground",
-                lat=item.get("lat"),
-                lon=item.get("lon"),
-                typecode=(item.get("t") or "").strip().upper() or None,
-                registration=(item.get("r") or "").strip() or None,
-                flagged_military=bool(db_flags & DBFLAG_MILITARY),
-                flagged_pia=bool(db_flags & DBFLAG_PIA),
-                flagged_ladd=bool(db_flags & DBFLAG_LADD),
-            )
-        )
-    return states
+    return adsb_json.parse_aircraft_list(data)

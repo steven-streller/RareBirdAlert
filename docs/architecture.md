@@ -34,7 +34,7 @@ identisch – das einmal pro Flughafen bei OpenSky abzufragen und zu teilen
 spart unnötige API-Aufrufe. Wer benachrichtigt werden will und worüber ist
 dagegen inhärent persönlich.
 
-## Datenquellen (`app/state_vector.py`, `app/opensky.py`, `app/adsblol.py`, `app/flight_sources.py`)
+## Datenquellen (`app/state_vector.py`, `app/opensky.py`, `app/adsb_json.py`, `app/adsblol.py`, `app/airplaneslive.py`, `app/flight_sources.py`)
 
 `StateVector` (in `state_vector.py`, dependency-free, um einen Zirkel-Import
 zu vermeiden) ist die gemeinsame Struktur, die jeder Quellen-Client liefert.
@@ -44,15 +44,24 @@ zu vermeiden) ist die gemeinsame Struktur, die jeder Quellen-Client liefert.
 Quellen ab und merged die Ergebnisse nach `icao24`: fehlende Felder einer
 Quelle werden durch eine andere ergänzt, `on_ground` ist ein OR über alle
 Quellen (eine frische "am Boden"-Meldung wird nie durch eine evtl.
-verzögerte "noch in der Luft"-Meldung einer anderen Quelle unterdrückt).
+verzögerte "noch in der Luft"-Meldung einer anderen Quelle unterdrückt). Das
+Merging faltet paarweise über beliebig viele aktivierte Quellen, nicht nur
+zwei - eine neue Quelle registrieren reicht, an `fetch_merged_states` selbst
+muss nichts angepasst werden.
 
-Zugangsdaten (aktuell nur OpenSkys Client-ID/-Secret) werden über
-`db.get_effective_setting()` aufgelöst: eine gesetzte Umgebungsvariable
-gewinnt immer, sonst der in `Setting` gespeicherte Wert aus der
-Einstellungen-Seite - `flight_sources._source_config()` ist die einzige
-Stelle, die diese Präzedenz auflöst, die einzelnen Client-Module
-(`opensky.py`, `adsblol.py`) bekommen fertig aufgelöste Werte per `cfg`-Dict
-übergeben und kennen `os.environ` gar nicht mehr.
+`adsblol.py` und `airplaneslive.py` sind beide dünne Wrapper um den
+gemeinsamen Parser in `adsb_json.py`, da beide community-betriebenen
+Netzwerke dasselbe readsb/tar1090-JSON-Format sprechen (direkt gegen beide
+APIs verifiziert, nicht angenommen) - nur Basis-URL und Rate-Limit
+unterscheiden sich.
+
+Zugangsdaten (aktuell nur OpenSkys Client-ID/-Secret - adsb.lol und
+airplanes.live brauchen keine) werden über `db.get_effective_setting()`
+aufgelöst: eine gesetzte Umgebungsvariable gewinnt immer, sonst der in
+`Setting` gespeicherte Wert aus der Admin-Seite - `flight_sources._source_config()`
+ist die einzige Stelle, die diese Präzedenz auflöst, die einzelnen
+Client-Module bekommen fertig aufgelöste Werte per `cfg`-Dict übergeben und
+kennen `os.environ` gar nicht mehr.
 
 ## Erkennung (`app/aircraft_db.py`, `app/matcher.py`, `app/scheduler.py`)
 

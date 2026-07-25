@@ -87,6 +87,7 @@ GLOBAL_DEFAULT_SETTINGS = {
     "poll_interval_seconds": "90",
     "source_enabled_opensky": "true",
     "source_enabled_adsblol": "true",
+    "source_enabled_airplaneslive": "true",
     "opensky_client_id": "",
     "opensky_client_secret": "",
 }
