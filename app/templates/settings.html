@@ -16,11 +16,52 @@
         <button class="primary" type="submit">Speichern</button>
     </form>
     <p class="item-sub">
-        Ein API-Aufruf bei OpenSky pro beobachtetem Flughafen und Poll-Zyklus.
-        Bei vielen Flughäfen und anonymer OpenSky-Nutzung ein höheres
-        Intervall wählen, siehe Dokumentation zu Rate-Limits.
+        Ein API-Aufruf pro aktivierter Datenquelle, beobachtetem Flughafen und
+        Poll-Zyklus. Bei vielen Flughäfen und anonymer OpenSky-Nutzung ein
+        höheres Intervall wählen, siehe Dokumentation zu Rate-Limits.
     </p>
 </section>
+
+<h2>Datenquellen</h2>
+{% for key, source in sources.items() %}
+    {% set is_enabled = source_settings['source_enabled_' + key] == 'true' %}
+    <details class="channel" id="source_{{ key }}" {{ 'open' if is_enabled else '' }}>
+        <summary>
+            <span class="channel-name">{{ source.label }}</span>
+            <span class="badge {{ 'on' if is_enabled else '' }}">{{ 'Aktiv' if is_enabled else 'Inaktiv' }}</span>
+        </summary>
+        <div class="channel-body">
+            <form class="settings-form" method="post" action="/settings">
+                <input type="hidden" name="_section" value="source_{{ key }}" />
+                <label class="checkbox-row">
+                    <input type="checkbox" name="source_enabled" {{ 'checked' if is_enabled else '' }} />
+                    Aktiviert
+                </label>
+                {% for field_key, field_label, field_type, placeholder in source.fields %}
+                    {% if source_settings[field_key + '__locked'] %}
+                        <label>
+                            {{ field_label }}
+                            <input type="{{ field_type }}" value="{{ source_settings[field_key] }}" disabled />
+                        </label>
+                        <p class="item-sub">Gesetzt über Umgebungsvariable, hier nicht überschreibbar.</p>
+                    {% else %}
+                        <label>
+                            {{ field_label }}
+                            <input
+                                type="{{ field_type }}"
+                                name="{{ field_key }}"
+                                value="{{ source_settings[field_key] }}"
+                                {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+                                autocomplete="off"
+                            />
+                        </label>
+                    {% endif %}
+                {% endfor %}
+                <button class="primary" type="submit">Speichern</button>
+            </form>
+        </div>
+    </details>
+{% endfor %}
 
 <h2>Benachrichtigungskanäle</h2>
 {% for key, channel in channels.items() %}

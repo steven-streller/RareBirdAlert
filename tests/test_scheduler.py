@@ -13,7 +13,7 @@ from app.models import (
     User,
     WatchlistEntry,
 )
-from app.opensky import StateVector
+from app.state_vector import StateVector
 
 
 def _make_airport(session, icao="EDDF"):
@@ -181,3 +181,52 @@ def test_notify_check_job_matches_custom_watchlist_entry(test_engine, monkeypatc
 
     with Session(test_engine) as session:
         assert len(session.exec(select(NotificationLog)).all()) == 1
+
+
+def test_process_state_prefers_live_type_and_registration_over_metadata_db(test_engine, monkeypatch):
+    # aircraft_db (OpenSky metadata cache) says one thing, but a live source
+    # like adsb.lol reported a fresher/more specific value directly on the
+    # StateVector - that should win.
+    monkeypatch.setattr(
+        scheduler.aircraft_db,
+        "lookup",
+        lambda icao24: {"typecode": "A332", "registration": "STALE-REG", "operator": "Luftwaffe"},
+    )
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        category = session.exec(
+            select(AircraftCategory).where(AircraftCategory.key == "eurofighter_typhoon")
+        ).first()
+
+        state = StateVector(
+            icao24="abc123",
+            callsign="GAF123",
+            on_ground=True,
+            lat=50.0,
+            lon=8.5,
+            typecode="EUFI",
+            registration="31+00",
+        )
+        scheduler._process_state(session, airport, state, [category], [])
+        session.commit()
+
+        sighting = session.exec(select(Sighting)).first()
+        assert sighting.typecode == "EUFI"
+        assert sighting.registration == "31+00"
+
+
+def test_process_state_matches_adsb_flagged_category(test_engine, monkeypatch):
+    monkeypatch.setattr(scheduler.aircraft_db, "lookup", lambda icao24: None)
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        category = session.exec(select(AircraftCategory).where(AircraftCategory.key == "adsb_flagged")).first()
+
+        state = StateVector(
+            icao24="abc123", callsign="UNKNOWN1", on_ground=True, lat=50.0, lon=8.5, flagged_pia=True
+        )
+        scheduler._process_state(session, airport, state, [category], [])
+        session.commit()
+
+        matches_ = session.exec(select(SightingMatch)).all()
+        assert len(matches_) == 1
+        assert matches_[0].category_key == "adsb_flagged"

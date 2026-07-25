@@ -69,10 +69,34 @@ CATEGORIES = [
         "match_type": "typecode",
         "pattern": "DC3,C47,B17,B29",
     },
+    {
+        "key": "adsb_flagged",
+        "label": "Militär/Privat-ICAO (adsb.lol-Flag)",
+        "description": (
+            "Von adsb.lol als militärisch, PIA (Privacy ICAO Address) oder LADD "
+            "(FAA-Liste versteckter ziviler Kennungen) markiert - zuverlässiger "
+            "als die Callsign-Heuristik, aber nur verfügbar, wenn die Quelle "
+            "„adsb.lol“ in den Einstellungen aktiviert ist."
+        ),
+        "match_type": "flagged_military_or_pia_or_ladd",
+        "pattern": "",
+    },
 ]
 
 GLOBAL_DEFAULT_SETTINGS = {
     "poll_interval_seconds": "90",
+    "source_enabled_opensky": "true",
+    "source_enabled_adsblol": "true",
+    "opensky_client_id": "",
+    "opensky_client_secret": "",
+}
+
+# Setting keys where a deploy-time env var takes precedence over whatever is
+# stored in the DB - used for credentials, so a container secret can't be
+# silently shadowed (or leaked into the DB) via the web UI.
+ENV_OVERRIDABLE_SETTINGS = {
+    "opensky_client_id": "OPENSKY_CLIENT_ID",
+    "opensky_client_secret": "OPENSKY_CLIENT_SECRET",
 }
 
 USER_DEFAULT_SETTINGS = {
@@ -130,6 +154,20 @@ def init_db() -> None:
 def get_setting(session: Session, key: str) -> str:
     setting = session.exec(select(Setting).where(Setting.key == key)).first()
     return setting.value if setting else GLOBAL_DEFAULT_SETTINGS.get(key, "")
+
+
+def get_effective_setting(session: Session, key: str) -> tuple[str, bool]:
+    """Like get_setting, but for keys in ENV_OVERRIDABLE_SETTINGS an env var
+    wins when set. Returns (value, is_env_locked) - the settings UI uses the
+    second value to render the field read-only instead of silently letting a
+    saved change have no effect.
+    """
+    env_var = ENV_OVERRIDABLE_SETTINGS.get(key)
+    if env_var:
+        env_value = os.environ.get(env_var)
+        if env_value:
+            return env_value, True
+    return get_setting(session, key), False
 
 
 def set_setting(session: Session, key: str, value: str) -> None:

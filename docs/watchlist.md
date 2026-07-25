@@ -16,6 +16,7 @@ hundertprozentige Trefferquote:
 | Eurofighter Typhoon | Flugzeugtyp `EUFI`/`EFA` | Unabhängig vom Callsign, direkt über den ICAO-Typcode. |
 | Spezial-Transporter | Flugzeugtyp `A3ST` (Beluga), `A124` (Antonov An-124), `C5`/`C5M` (C-5 Galaxy) | Für die Beluga XL siehe unten – der ICAO-Typcode allein reicht dafür nicht. |
 | Historische Klassiker | Flugzeugtyp `DC3`/`C47` (Douglas DC-3), `B17`, `B29` | Seltene Oldtimer, die noch flugfähig sind. |
+| Militär/Privat-ICAO (adsb.lol-Flag) | `dbFlags`-Bitmaske von adsb.lol (militärisch, PIA, LADD) | Zuverlässiger als die Callsign-Heuristik der `Militär`-Kategorie, da es aus der Flugzeug-Datenbank kommt statt aus einer Namens-Vermutung - aber nur, solange die Datenquelle **adsb.lol** aktiviert ist. Siehe [Datenquellen](data-sources.md). |
 
 Jede Kategorie lässt sich pro Account unter **Watchlist** an- und abschalten
 (Standard: alle aktiv).

@@ -51,3 +51,17 @@ def test_empty_pattern_never_matches():
 def test_unknown_match_type_never_matches():
     aircraft = AircraftInfo(icao24="3c6444", typecode="A3ST")
     assert matches("bogus_type", "A3ST", aircraft) is False
+
+
+def test_flagged_match_ignores_pattern_and_checks_any_flag():
+    unflagged = AircraftInfo(icao24="3c6444")
+    assert matches("flagged_military_or_pia_or_ladd", "", unflagged) is False
+
+    military = AircraftInfo(icao24="3c6444", flagged_military=True)
+    assert matches("flagged_military_or_pia_or_ladd", "", military) is True
+
+    pia = AircraftInfo(icao24="3c6444", flagged_pia=True)
+    assert matches("flagged_military_or_pia_or_ladd", "anything", pia) is True
+
+    ladd = AircraftInfo(icao24="3c6444", flagged_ladd=True)
+    assert matches("flagged_military_or_pia_or_ladd", "", ladd) is True

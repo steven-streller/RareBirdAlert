@@ -1,10 +1,10 @@
 import logging
 import math
-import os
 import time
-from dataclasses import dataclass
 
 import requests
+
+from app.state_vector import StateVector
 
 logger = logging.getLogger("rarebirdalert.opensky")
 
@@ -16,16 +16,10 @@ TOKEN_ENDPOINT = (
 )
 
 _session = requests.Session()
-_token_cache: dict[str, float | str] = {"access_token": "", "expires_at": 0.0}
-
-
-@dataclass
-class StateVector:
-    icao24: str
-    callsign: str | None
-    on_ground: bool
-    lat: float | None
-    lon: float | None
+# Keyed by (client_id, client_secret) rather than a single slot - credentials
+# can now change at runtime via the settings UI, not just at process start
+# via env vars, so a token cached for old credentials must not be reused.
+_token_cache: dict[str, object] = {"key": None, "access_token": "", "expires_at": 0.0}
 
 
 def _bounding_box(lat: float, lon: float, radius_km: float) -> tuple[float, float, float, float]:
@@ -35,13 +29,16 @@ def _bounding_box(lat: float, lon: float, radius_km: float) -> tuple[float, floa
     return (lat - lat_delta, lon - lon_delta, lat + lat_delta, lon + lon_delta)
 
 
-def _get_access_token() -> str | None:
-    client_id = os.environ.get("OPENSKY_CLIENT_ID")
-    client_secret = os.environ.get("OPENSKY_CLIENT_SECRET")
+def _get_access_token(client_id: str, client_secret: str) -> str | None:
     if not client_id or not client_secret:
         return None
 
-    if _token_cache["access_token"] and time.time() < float(_token_cache["expires_at"]):
+    cache_key = (client_id, client_secret)
+    if (
+        _token_cache["key"] == cache_key
+        and _token_cache["access_token"]
+        and time.time() < float(_token_cache["expires_at"])
+    ):
         return str(_token_cache["access_token"])
 
     try:
@@ -60,23 +57,26 @@ def _get_access_token() -> str | None:
         logger.error("OpenSky OAuth2 token request failed: %s", exc)
         return None
 
+    _token_cache["key"] = cache_key
     _token_cache["access_token"] = data["access_token"]
     # Refresh a bit early to avoid a request failing right at expiry.
     _token_cache["expires_at"] = time.time() + int(data.get("expires_in", 1800)) - 30
     return str(_token_cache["access_token"])
 
 
-def fetch_states(lat: float, lon: float, radius_km: float) -> list[StateVector]:
+def fetch_states(cfg: dict, lat: float, lon: float, radius_km: float) -> list[StateVector]:
     """Fetches live aircraft states within radius_km of (lat, lon).
 
-    Returns an empty list on any request failure (rate limit, timeout, ...)
-    instead of raising - a poll cycle skipping one airport is not fatal and
-    will simply retry on the next scheduled run.
+    cfg holds "opensky_client_id"/"opensky_client_secret" (already resolved
+    from env-or-settings by app.flight_sources - this function doesn't care
+    where they came from). Returns an empty list on any request failure
+    (rate limit, timeout, ...) instead of raising - a poll cycle skipping one
+    airport is not fatal and will simply retry on the next scheduled run.
     """
     lamin, lomin, lamax, lomax = _bounding_box(lat, lon, radius_km)
     params = {"lamin": lamin, "lomin": lomin, "lamax": lamax, "lomax": lomax}
     headers = {}
-    token = _get_access_token()
+    token = _get_access_token(cfg.get("opensky_client_id", ""), cfg.get("opensky_client_secret", ""))
     if token:
         headers["Authorization"] = f"Bearer {token}"
 

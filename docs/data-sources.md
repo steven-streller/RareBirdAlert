@@ -1,16 +1,30 @@
-# Datenquelle: OpenSky Network
+# Datenquellen
 
-RareBirdAlert bezieht Live-Flugzeugpositionen ausschließlich vom
-[OpenSky Network](https://opensky-network.org/), einer gemeinnützigen,
-community-getragenen ADS-B-Aggregation. Kein API-Key ist zwingend
-erforderlich, aber die anonyme Nutzung ist stark rate-limitiert.
+RareBirdAlert kann Live-Flugzeugpositionen aus mehreren Datenquellen
+gleichzeitig beziehen: [OpenSky Network](https://opensky-network.org/) und
+[adsb.lol](https://api.adsb.lol/docs). Beide lassen sich unter
+**Einstellungen → Datenquellen** unabhängig voneinander an- und abschalten.
 
-## Anonyme Nutzung vs. eigener Account
+**Wie mehrere aktivierte Quellen zusammenspielen:** Pro Poll-Zyklus wird
+jede aktivierte Quelle für jeden beobachteten Flughafen abgefragt; die
+Ergebnisse werden nach `icao24` (Transponder-Hexcode) zusammengeführt. Sieht
+nur eine Quelle ein Flugzeug, wird es trotzdem berücksichtigt. Sehen beide
+Quellen dasselbe Flugzeug, werden fehlende Felder der einen durch die andere
+ergänzt (z. B. liefert adsb.lol Typ/Kennung direkt mit, OpenSky nicht) - und
+gilt es bei **mindestens einer** Quelle als "am Boden", zählt das als
+Landung, selbst wenn die andere Quelle es (noch) als "in der Luft" meldet.
+Mehr Quellen bedeuten also bessere Abdeckung, nicht mehr Fehlalarme.
 
-Ohne Zugangsdaten (`OPENSKY_CLIENT_ID`/`OPENSKY_CLIENT_SECRET` leer) läuft
-jede Anfrage anonym mit einem niedrigen täglichen Kontingent. Für mehr als
-ein, zwei beobachtete Flughäfen bei einem kurzen Poll-Intervall reicht das
-schnell nicht mehr aus.
+## OpenSky Network
+
+Gemeinnützige, community-getragene ADS-B-Aggregation. Kein API-Key ist
+zwingend erforderlich, aber die anonyme Nutzung ist stark rate-limitiert.
+
+### Anonyme Nutzung vs. eigener Account
+
+Ohne Zugangsdaten läuft jede Anfrage anonym mit einem niedrigen täglichen
+Kontingent. Für mehr als ein, zwei beobachtete Flughäfen bei einem kurzen
+Poll-Intervall reicht das schnell nicht mehr aus.
 
 Für ein deutlich höheres Kontingent:
 
@@ -18,13 +32,16 @@ Für ein deutlich höheres Kontingent:
    anlegen.
 2. Unter den Account-Einstellungen einen API-Client (OAuth2
    Client-Credentials) registrieren.
-3. `OPENSKY_CLIENT_ID` und `OPENSKY_CLIENT_SECRET` in der `.env`/den
-   Container-Umgebungsvariablen setzen (siehe [Konfiguration](configuration.md)).
+3. Client-ID und -Secret **entweder** als `OPENSKY_CLIENT_ID`/
+   `OPENSKY_CLIENT_SECRET` in der `.env`/den Container-Umgebungsvariablen
+   **oder** direkt unter Einstellungen → Datenquellen eintragen - siehe
+   [Konfiguration](configuration.md#datenquellen-und-zugangsdaten) für die
+   genaue Präzedenz zwischen beidem.
 
 RareBirdAlert holt sich damit automatisch ein Bearer-Token und erneuert es
 selbstständig vor Ablauf.
 
-## Wie Anfragen gezählt werden
+### Wie Anfragen gezählt werden
 
 Ein Poll-Zyklus macht **einen** OpenSky-Aufruf pro eindeutig beobachtetem
 Flughafen (nicht pro Nutzer – beobachten mehrere Accounts denselben
@@ -33,28 +50,62 @@ Radius). Faustregel: `Anfragen pro Tag ≈ Anzahl Flughäfen × (86400 /
 Poll-Intervall in Sekunden)`. Bei vielen Flughäfen und anonymer Nutzung
 entsprechend das Poll-Intervall in den Einstellungen erhöhen.
 
-## Grenzen der kostenlosen Nutzung
+### Grenzen
 
 - **Geblockte/militärische Flugzeuge**: OpenSky zeigt nur, was die
   angeschlossenen Community-Feeder tatsächlich empfangen und was nicht
   serverseitig gefiltert wird. Manche Militärmaschinen fliegen mit
   deaktiviertem oder verschlüsseltem ADS-B-Transponder und tauchen dadurch
-  gar nicht erst auf – das ist eine Einschränkung der Datenquelle, keine
-  Einschränkung der RareBirdAlert-Erkennungslogik.
+  gar nicht erst auf. Das ist einer der Hauptgründe, zusätzlich **adsb.lol**
+  zu aktivieren (siehe unten).
 - **Abdeckungslücken**: Wie bei jedem ADS-B-Netzwerk hängt die Abdeckung von
-  der Dichte der Community-Feeder in der jeweiligen Region ab. In
-  bodennahen/gebäudereichen Bereichen (z. B. kurz vor dem Aufsetzen) kann ein
-  Flugzeug kurzzeitig aus der Sicht aller Feeder verschwinden.
+  der Dichte der Community-Feeder in der jeweiligen Region ab.
 - **Rate-Limits ändern sich gelegentlich** von OpenSky-Seite aus. Bei
   wiederholten `429`-Antworten im Log einfach das Poll-Intervall erhöhen oder
   einen eigenen Account mit API-Client einrichten.
+- Liefert **kein** Typ/Kennung direkt in den Live-Daten - dafür ist die
+  Flugzeug-Metadatenbank zuständig (siehe unten).
+
+## adsb.lol
+
+Ebenfalls community-betriebene, offene ADS-B-API im Stil von ADSB Exchange -
+**kein API-Key nötig**, kein Rate-Limit-Setup erforderlich. Standardmäßig
+aktiviert.
+
+Zwei Vorteile gegenüber OpenSky, die adsb.lol als zweite Quelle besonders
+wertvoll machen:
+
+- **Liefert Typ (`t`) und Kennung (`r`) direkt live mit** - kein Warten auf
+  die wöchentliche Metadatenbank-Aktualisierung nötig, und aktueller bei
+  frisch umregistrierten Flugzeugen.
+- **`dbFlags`**: adsb.lol markiert Flugzeuge, die als militärisch gelten,
+  eine private ICAO-Adresse (PIA) nutzen oder auf der FAA-LADD-Liste stehen
+  (Flugzeuge, die bei anderen Trackern absichtlich versteckt werden). Das
+  füttert die eingebaute Watchlist-Kategorie **„Militär/Privat-ICAO
+  (adsb.lol-Flag)“** - deutlich zuverlässiger als die Callsign-Präfix-
+  Heuristik der `military`-Kategorie, weil es aus der Datenbank des
+  Flugzeugs kommt statt aus einer Namens-Vermutung. Siehe
+  [Watchlist](watchlist.md).
+
+Radius wird intern von km in nautische Meilen umgerechnet (adsb.lol-Limit:
+250 nm ≈ 463 km) - ein größerer eingestellter Radius wird entsprechend
+gekappt.
+
+### Grenzen
+
+- Kein offizielles SLA/Rate-Limit-Dokument - bei wiederholten Fehlern im Log
+  einfach das Poll-Intervall erhöhen.
+- Liefert keinen Betreiber (`operator`) - dafür wird weiterhin die
+  Flugzeug-Metadatenbank herangezogen.
 
 ## Flugzeug-Metadatenbank
 
-Typ, Kennung und Betreiber eines Flugzeugs kommen nicht aus den Live-Daten
-selbst, sondern aus OpenSkys öffentlicher Flugzeugdatenbank (CSV-Export, ca.
-500.000 Zeilen). RareBirdAlert lädt diese beim ersten Start (kann bis zu
-einer Minute dauern) und danach wöchentlich neu in einen lokalen Cache
-(`RAREBIRDALERT_AIRCRAFT_DB_CACHE`). Schlägt der Download fehl (z. B. wegen
-eines Netzwerkproblems), läuft die Erkennung ohne Typ-Info weiter und der
-nächste geplante Versuch holt es nach – kein harter Fehler.
+Betreiber-Informationen sowie Typ/Kennung als Fallback (wenn keine aktivierte
+Quelle sie live mitliefert) kommen aus OpenSkys öffentlicher
+Flugzeugdatenbank (CSV-Export, ca. 500.000 Zeilen) - unabhängig davon, welche
+Live-Quelle(n) aktiviert sind. RareBirdAlert lädt diese beim ersten Start
+(kann bis zu einer Minute dauern) und danach wöchentlich neu in einen
+lokalen Cache (`RAREBIRDALERT_AIRCRAFT_DB_CACHE`). Schlägt der Download fehl
+(z. B. wegen eines Netzwerkproblems), läuft die Erkennung mit den ggf. live
+verfügbaren Feldern weiter und der nächste geplante Versuch holt es nach –
+kein harter Fehler.
