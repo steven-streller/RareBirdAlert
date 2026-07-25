@@ -1,6 +1,6 @@
 from sqlmodel import Session, select
 
-from app import scheduler
+from app import metrics, scheduler
 from app.db import set_user_setting
 from app.models import (
     AircraftCategory,
@@ -47,6 +47,25 @@ def test_process_state_creates_sighting_on_landing(test_engine, monkeypatch):
         matches = session.exec(select(SightingMatch)).all()
         assert len(matches) == 1
         assert matches[0].category_key == "eurofighter_typhoon"
+
+
+def test_process_state_increments_the_sightings_total_metric(test_engine, monkeypatch):
+    # Counter is a process-wide singleton shared across the whole test
+    # session, so assert on the delta rather than an absolute value.
+    monkeypatch.setattr(scheduler.aircraft_db, "lookup", lambda icao24: {"typecode": "EUFI"})
+    before = metrics.sightings_total._value.get()
+
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        category = session.exec(
+            select(AircraftCategory).where(AircraftCategory.key == "eurofighter_typhoon")
+        ).first()
+        state = StateVector(icao24="abc123", callsign="GAF123", on_ground=True, lat=50.0, lon=8.5)
+        scheduler._process_state(session, airport, state, [category], [])
+        session.commit()
+
+    after = metrics.sightings_total._value.get()
+    assert after == before + 1
 
 
 def test_process_state_does_not_retrigger_while_parked(test_engine, monkeypatch):

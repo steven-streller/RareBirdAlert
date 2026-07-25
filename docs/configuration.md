@@ -13,6 +13,7 @@ Weboberfläche selbst.
 | `REGISTRATION_ENABLED` | `true` | Auf `false` setzen, sobald alle gewünschten Accounts existieren, um `/register` zu sperren. Bestehende Accounts können sich weiterhin einloggen. |
 | `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET` | leer | Optionale OAuth2-Client-Credentials für ein höheres OpenSky-Rate-Limit. Siehe unten und [Datenquellen](data-sources.md). |
 | `TZ` | (System-Default) | Zeitzone für Anzeige der Landezeiten. Sollte auf `Europe/Berlin` stehen, sonst weichen angezeigte Uhrzeiten vom tatsächlichen Landezeitpunkt ab. |
+| `METRICS_TOKEN` | leer (offen) | Optionales Bearer-Token, um `/metrics` abzusichern. Siehe [Monitoring](monitoring.md). |
 
 ## Admin-Account
 

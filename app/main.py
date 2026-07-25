@@ -3,10 +3,11 @@ import os
 import secrets
 from datetime import date, datetime
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlmodel import Session, select
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -44,11 +45,13 @@ logging.basicConfig(level=logging.INFO)
 
 
 class _HealthCheckLogFilter(logging.Filter):
-    """Keeps k8s readiness/liveness probe hits out of the access log - they'd
-    otherwise drown out everything else every few seconds."""
+    """Keeps k8s readiness/liveness probe hits and Prometheus scrapes out of
+    the access log - they'd otherwise drown out everything else every
+    few seconds."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        return "/healthz" not in record.getMessage()
+        message = record.getMessage()
+        return "/healthz" not in message and "/metrics" not in message
 
 
 logging.getLogger("uvicorn.access").addFilter(_HealthCheckLogFilter())
@@ -70,6 +73,10 @@ templates.env.globals["app_version"] = __version__
 templates.env.globals["csrf_token"] = get_or_create_csrf_token
 
 REGISTRATION_ENABLED = os.environ.get("REGISTRATION_ENABLED", "true").lower() != "false"
+# Unset: /metrics is open (typical for scraping from a trusted internal
+# network). Set: requires a matching Bearer token, since Prometheus scrape
+# configs support a static bearer_token but not a cookie-based login.
+METRICS_TOKEN = os.environ.get("METRICS_TOKEN")
 
 MATCH_TYPE_LABELS = {
     "typecode": "Flugzeugtyp",
@@ -89,6 +96,13 @@ def on_startup() -> None:
 @app.get("/healthz")
 def healthz():
     return {"status": "ok"}
+
+
+@app.get("/metrics")
+def metrics_endpoint(request: Request):
+    if METRICS_TOKEN and request.headers.get("authorization") != f"Bearer {METRICS_TOKEN}":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 # --- Auth -------------------------------------------------------------------
