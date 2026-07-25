@@ -1,11 +1,11 @@
 # Datenquellen
 
 RareBirdAlert kann Live-Flugzeugpositionen aus mehreren Datenquellen
-gleichzeitig beziehen: [OpenSky Network](https://opensky-network.org/) und
-[adsb.lol](https://api.adsb.lol/docs). Beide lassen sich unter
-**Admin → Datenquellen** (nur für den Admin-Account sichtbar, siehe
-[Konfiguration](configuration.md#admin-account)) unabhängig voneinander
-an- und abschalten.
+gleichzeitig beziehen: [OpenSky Network](https://opensky-network.org/),
+[adsb.lol](https://api.adsb.lol/docs) und [airplanes.live](https://airplanes.live/api-guide/).
+Alle drei lassen sich unter **Admin → Datenquellen** (nur für den
+Admin-Account sichtbar, siehe [Konfiguration](configuration.md#admin-account))
+unabhängig voneinander an- und abschalten.
 
 **Wie mehrere aktivierte Quellen zusammenspielen:** Pro Poll-Zyklus wird
 jede aktivierte Quelle für jeden beobachteten Flughafen abgefragt; die
@@ -102,6 +102,24 @@ gekappt.
 
 - Kein offizielles SLA/Rate-Limit-Dokument - bei wiederholten Fehlern im Log
   einfach das Poll-Intervall erhöhen.
+- Liefert keinen Betreiber (`operator`) - dafür wird weiterhin die
+  Flugzeug-Metadatenbank herangezogen.
+
+## airplanes.live
+
+Noch ein community-betriebenes, offenes ADS-B-Netzwerk - technisch praktisch
+identisch zu adsb.lol (gleiches JSON-Format, gleicher
+`/v2/point/{lat}/{lon}/{radius}`-Endpunkt, gleiche `dbFlags`-Konvention für
+Militär/PIA/LADD, siehe `app/adsb_json.py` für den gemeinsam genutzten
+Parser). **Kein API-Key nötig**, standardmäßig aktiviert.
+
+### Grenzen
+
+- **Explizites Rate-Limit von 1 Anfrage/Sekunde** (im Gegensatz zu adsb.lol
+  offiziell dokumentiert). Bei vielen beobachteten Flughäfen und mehreren
+  gleichzeitig aktivierten Quellen entsprechend ein höheres Poll-Intervall
+  wählen, damit airplanes.live nicht öfter als einmal pro Sekunde über alle
+  Flughäfen hinweg abgefragt wird.
 - Liefert keinen Betreiber (`operator`) - dafür wird weiterhin die
   Flugzeug-Metadatenbank herangezogen.
 
