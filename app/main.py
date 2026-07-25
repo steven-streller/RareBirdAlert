@@ -35,6 +35,7 @@ from app.models import (
     WatchlistEntry,
 )
 from app.notifications import CHANNELS, send_to_channel
+from app.rate_limit import login_rate_limiter
 from app.scheduler import poll_job, reschedule_poll_job, start_scheduler
 from app.security import hash_password, verify_password
 from app.version import __version__
@@ -152,13 +153,19 @@ async def login(request: Request):
     verify_csrf(request, form.get("csrf_token"))
     email = str(form.get("email", "")).strip().lower()
     password = str(form.get("password", ""))
+    client_ip = request.client.host if request.client else "unknown"
+
+    if login_rate_limiter.is_blocked(client_ip, email):
+        return RedirectResponse(url="/login?error=ratelimited", status_code=303)
 
     with Session(engine) as session:
         user = session.exec(select(User).where(User.email == email)).first()
 
     if not user or not verify_password(password, user.password_hash):
+        login_rate_limiter.record_failure(client_ip, email)
         return RedirectResponse(url="/login?error=1", status_code=303)
 
+    login_rate_limiter.reset(client_ip, email)
     login_user(request, user)
     return RedirectResponse(url="/", status_code=303)
 

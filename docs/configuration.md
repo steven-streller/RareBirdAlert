@@ -27,6 +27,17 @@ Bei einem Upgrade einer bestehenden Instanz (die `is_admin` noch nicht
 kannte) wird beim nächsten Start automatisch der am längsten bestehende
 Account zum Admin gemacht, damit niemand ausgesperrt bleibt.
 
+## Login-Schutz
+
+`/login` ist gegen Brute-Force-Versuche abgesichert: nach 5 falschen
+Passwörtern für dieselbe Kombination aus Client-IP und E-Mail-Adresse
+innerhalb von 5 Minuten wird weiter versucht abgelehnt ("Zu viele
+Fehlversuche"), unabhängig davon, ob das Passwort korrekt ist. Ein
+erfolgreicher Login setzt den Zähler zurück. Das ist ein rein
+prozessinterner Zähler (kein Redis nötig) und setzt sich bei jedem
+Container-Neustart zurück - für die Ein-Container-Architektur dieses
+Projekts ausreichend.
+
 ## Poll-Intervall
 
 Wie oft die aktivierten Datenquellen pro beobachtetem Flughafen abgefragt
