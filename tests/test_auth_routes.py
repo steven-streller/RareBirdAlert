@@ -1,3 +1,4 @@
+from app.rate_limit import LoginRateLimiter
 from tests.conftest import register
 
 
@@ -91,6 +92,45 @@ def test_logout_clears_session(client):
     resp = client.get("/", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"
+
+
+def test_login_blocked_after_max_failed_attempts(client, monkeypatch):
+    monkeypatch.setattr("app.main.login_rate_limiter", LoginRateLimiter(max_attempts=3, window_seconds=300))
+    register(client, "ratelimited@example.com", password="correctpass1")
+    client.post("/logout")
+
+    for _ in range(3):
+        client.post("/login", data={"email": "ratelimited@example.com", "password": "wrongpass1"})
+
+    resp = client.post(
+        "/login",
+        data={"email": "ratelimited@example.com", "password": "correctpass1"},
+        follow_redirects=False,
+    )
+    assert resp.headers["location"] == "/login?error=ratelimited"
+
+
+def test_login_page_shows_ratelimited_message(client):
+    page = client.get("/login?error=ratelimited")
+    assert "Zu viele Fehlversuche" in page.text
+
+
+def test_successful_login_resets_the_rate_limit_counter(client, monkeypatch):
+    monkeypatch.setattr("app.main.login_rate_limiter", LoginRateLimiter(max_attempts=3, window_seconds=300))
+    register(client, "resets@example.com", password="correctpass1")
+    client.post("/logout")
+
+    client.post("/login", data={"email": "resets@example.com", "password": "wrongpass1"})
+    client.post("/login", data={"email": "resets@example.com", "password": "correctpass1"})
+    client.post("/logout")
+
+    client.post("/login", data={"email": "resets@example.com", "password": "wrongpass1"})
+    resp = client.post(
+        "/login",
+        data={"email": "resets@example.com", "password": "correctpass1"},
+        follow_redirects=False,
+    )
+    assert resp.headers["location"] == "/"
 
 
 def test_register_page_redirects_when_already_logged_in(client):

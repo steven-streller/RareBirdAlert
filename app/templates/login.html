@@ -4,7 +4,11 @@
 <div class="auth-page">
     <h1>Anmelden</h1>
 
-    {% if error %}<div class="error">E-Mail oder Passwort falsch.</div>{% endif %}
+    {% if error == "ratelimited" %}
+        <div class="error">Zu viele Fehlversuche. Bitte kurz warten und erneut versuchen.</div>
+    {% elif error %}
+        <div class="error">E-Mail oder Passwort falsch.</div>
+    {% endif %}
 
     <form class="settings-form" method="post" action="/login">
         <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
