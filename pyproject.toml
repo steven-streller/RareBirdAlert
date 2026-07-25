@@ -12,3 +12,7 @@ ignore = ["E501", "UP007", "UP045", "B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Without this, plain `pytest` (as opposed to `python -m pytest`) never puts
+# the repo root on sys.path, so `from app...` imports fail in conftest.py -
+# this is what CI invokes, so it must work without the `-m` form too.
+pythonpath = ["."]

@@ -12,7 +12,7 @@ permissions:
 jobs:
   release-please:
     if: github.ref_type == 'branch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       major: ${{ steps.release.outputs.major }}
@@ -34,7 +34,7 @@ jobs:
     if: |
       always() &&
       (needs.release-please.outputs.release_created == 'true' || github.ref_type == 'tag')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
