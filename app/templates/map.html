@@ -27,9 +27,22 @@
         attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>-Mitwirkende"
     }).addTo(map);
 
+    // Aircraft fields (callsign, type, registration, ...) come straight from
+    // ADS-B broadcasts - unauthenticated and therefore spoofable - so they're
+    // escaped before going into a popup's innerHTML, same as the airport
+    // name/ICAO code below (harmless in practice since that data is our own
+    // bundled directory, but consistent defense in depth costs nothing here).
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, function (c) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+        });
+    }
+
     const bounds = [];
     watches.forEach(function (w) {
-        L.marker([w.lat, w.lon]).addTo(map).bindPopup("<strong>" + w.icao + "</strong><br>" + w.name);
+        L.marker([w.lat, w.lon])
+            .addTo(map)
+            .bindPopup("<strong>" + escapeHtml(w.icao) + "</strong><br>" + escapeHtml(w.name));
         L.circle([w.lat, w.lon], { radius: w.radius_km * 1000, color: "#3aa0ff", fillOpacity: 0.05 }).addTo(map);
         bounds.push([w.lat, w.lon]);
     });
@@ -56,16 +69,22 @@
                         fillColor: color,
                         fillOpacity: 0.8
                     });
-                    const label = ac.callsign || ac.icao24;
+                    const label = escapeHtml(ac.callsign || ac.icao24);
                     const flags = [];
                     if (ac.flagged_military) flags.push("Militär");
                     if (ac.flagged_pia) flags.push("PIA");
                     if (ac.flagged_ladd) flags.push("LADD");
+                    const typeInfoLink = ac.typecode
+                        ? "<br><a href=\"https://skybrary.aero/aircraft/" + encodeURIComponent(ac.typecode.toLowerCase()) +
+                          "\" target=\"_blank\" rel=\"noopener\">Info zum Typ ↗</a>"
+                        : "";
                     marker.bindPopup(
                         "<strong>" + label + "</strong><br>" +
-                        (ac.typecode || "unbekannter Typ") + (ac.registration ? " · " + ac.registration : "") + "<br>" +
+                        escapeHtml(ac.typecode || "unbekannter Typ") +
+                        (ac.registration ? " · " + escapeHtml(ac.registration) : "") + "<br>" +
                         (ac.on_ground ? "am Boden" : "in der Luft") +
-                        (flags.length ? "<br>" + flags.join(", ") : "")
+                        (flags.length ? "<br>" + flags.join(", ") : "") +
+                        typeInfoLink
                     );
                     marker.addTo(aircraftLayer);
                 });
