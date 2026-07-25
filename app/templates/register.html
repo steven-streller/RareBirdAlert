@@ -14,6 +14,7 @@
         {% if error == "taken" %}<div class="error">Für diese E-Mail existiert bereits ein Account.</div>{% endif %}
 
         <form class="settings-form" method="post" action="/register">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
             <label>
                 E-Mail
                 <input type="email" name="email" required autofocus />

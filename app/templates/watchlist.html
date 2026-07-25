@@ -17,6 +17,7 @@
         {% if category.description %}<div class="item-sub">{{ category.description }}</div>{% endif %}
     </div>
     <form method="post" action="/watchlist/category/{{ category.key }}/toggle">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
         <button class="toggle-btn {{ 'active' if category.enabled else '' }}" type="submit">
             {{ 'Aktiv' if category.enabled else 'Inaktiv' }}
         </button>
@@ -33,6 +34,7 @@
             <div class="item-sub">{{ match_type_labels.get(entry.match_type, entry.match_type) }}: {{ entry.pattern }}</div>
         </div>
         <form method="post" action="/watchlist/{{ entry.id }}/delete">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
             <button class="link-button" type="submit">Löschen</button>
         </form>
     </div>
@@ -42,6 +44,7 @@
 {% endif %}
 
 <form class="settings-form" method="post" action="/watchlist">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
     <label>
         Bezeichnung
         <input type="text" name="label" placeholder="Beluga XL" required />

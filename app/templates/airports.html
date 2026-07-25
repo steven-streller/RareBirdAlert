@@ -30,6 +30,7 @@
             <div class="item-sub">Radius: {{ row.watch.radius_km|int }} km</div>
         </div>
         <form method="post" action="/airports/{{ row.watch.id }}/delete">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
             <button class="link-button" type="submit">Entfernen</button>
         </form>
     </div>
