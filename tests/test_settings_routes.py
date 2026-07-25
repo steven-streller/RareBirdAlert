@@ -79,6 +79,35 @@ def test_save_settings_persists_channel_checkbox_field(client):
     assert 'name="email_use_tls" checked' in page.text
 
 
+def test_save_quiet_hours_persists_and_shows_in_settings_page(client):
+    register(client, "alice@example.com")
+    resp = client.post(
+        "/settings",
+        data={
+            "_section": "quiet_hours",
+            "quiet_hours_enabled": "on",
+            "quiet_hours_start": "23:00",
+            "quiet_hours_end": "06:30",
+            "quiet_hours_timezone": "Europe/Berlin",
+        },
+        follow_redirects=False,
+    )
+    assert resp.headers["location"] == "/settings?saved=quiet_hours#quiet_hours"
+
+    page = client.get(resp.headers["location"])
+    assert 'name="quiet_hours_enabled" checked' in page.text
+    assert 'value="23:00"' in page.text
+    assert 'value="06:30"' in page.text
+    assert 'value="Europe/Berlin"' in page.text
+    assert "„Ruhezeiten“ gespeichert." in page.text
+
+
+def test_quiet_hours_disabled_by_default(client):
+    register(client, "alice@example.com")
+    page = client.get("/settings")
+    assert 'name="quiet_hours_enabled" checked' not in page.text
+
+
 def test_safe_channel_anchor_never_echoes_unknown_input():
     # Regression test for a CodeQL "URL redirection from remote source"
     # (CWE-601) finding: an earlier version returned `value` itself on a
@@ -86,6 +115,7 @@ def test_safe_channel_anchor_never_echoes_unknown_input():
     # static analysis treats as attacker-controlled data reaching a redirect.
     for known in CHANNELS:
         assert _safe_channel_anchor(known) == known
+    assert _safe_channel_anchor("quiet_hours") == "quiet_hours"
     assert _safe_channel_anchor("javascript:alert(1)") == "general"
     assert _safe_channel_anchor("//evil.example.com") == "general"
     assert _safe_channel_anchor("") == "general"

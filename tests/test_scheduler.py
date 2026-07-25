@@ -224,6 +224,104 @@ def test_notify_check_job_omits_route_line_when_no_route_found(test_engine, monk
     assert "Route:" not in captured["message"]
 
 
+def _seed_notifiable_sighting(session, airport, email):
+    user = User(email=email, password_hash="x")
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    session.add(AirportWatch(user_id=user.id, airport_id=airport.id, radius_km=15))
+    set_user_setting(session, user.id, "webhook_enabled", "true")
+
+    sighting = Sighting(airport_id=airport.id, icao24="abc123", callsign="GAF123", typecode="EUFI")
+    session.add(sighting)
+    session.commit()
+    session.refresh(sighting)
+    session.add(SightingMatch(sighting_id=sighting.id, category_key="eurofighter_typhoon", label="Eurofighter"))
+    session.commit()
+    return user
+
+
+def test_notify_check_job_skips_during_quiet_hours_without_marking_notified(test_engine, monkeypatch):
+    from datetime import datetime as real_datetime
+
+    class _FrozenDatetime(real_datetime):
+        @classmethod
+        def utcnow(cls):
+            return real_datetime(2026, 7, 25, 23, 0)  # 23:00 UTC - inside a 22:00-07:00 UTC window
+
+    monkeypatch.setattr(scheduler, "datetime", _FrozenDatetime)
+    monkeypatch.setattr(
+        scheduler, "notify_all", lambda session, user_id, title, message, url=None: {"webhook": True}
+    )
+
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        user = _seed_notifiable_sighting(session, airport, "quiet-hours@example.com")
+        set_user_setting(session, user.id, "quiet_hours_enabled", "true")
+        set_user_setting(session, user.id, "quiet_hours_start", "22:00")
+        set_user_setting(session, user.id, "quiet_hours_end", "07:00")
+        set_user_setting(session, user.id, "quiet_hours_timezone", "UTC")
+
+    scheduler.notify_check_job()
+
+    with Session(test_engine) as session:
+        assert session.exec(select(NotificationLog)).all() == []
+
+
+def test_notify_check_job_delivers_normally_outside_quiet_hours(test_engine, monkeypatch):
+    from datetime import datetime as real_datetime
+
+    class _FrozenDatetime(real_datetime):
+        @classmethod
+        def utcnow(cls):
+            return real_datetime(2026, 7, 25, 12, 0)  # 12:00 UTC - outside a 22:00-07:00 UTC window
+
+    monkeypatch.setattr(scheduler, "datetime", _FrozenDatetime)
+    monkeypatch.setattr(
+        scheduler, "notify_all", lambda session, user_id, title, message, url=None: {"webhook": True}
+    )
+
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        user = _seed_notifiable_sighting(session, airport, "daytime@example.com")
+        set_user_setting(session, user.id, "quiet_hours_enabled", "true")
+        set_user_setting(session, user.id, "quiet_hours_start", "22:00")
+        set_user_setting(session, user.id, "quiet_hours_end", "07:00")
+        set_user_setting(session, user.id, "quiet_hours_timezone", "UTC")
+
+    scheduler.notify_check_job()
+
+    with Session(test_engine) as session:
+        assert len(session.exec(select(NotificationLog)).all()) == 1
+
+
+def test_notify_check_job_ignores_quiet_hours_when_disabled(test_engine, monkeypatch):
+    from datetime import datetime as real_datetime
+
+    class _FrozenDatetime(real_datetime):
+        @classmethod
+        def utcnow(cls):
+            return real_datetime(2026, 7, 25, 23, 0)  # would be inside the window, but it's disabled
+
+    monkeypatch.setattr(scheduler, "datetime", _FrozenDatetime)
+    monkeypatch.setattr(
+        scheduler, "notify_all", lambda session, user_id, title, message, url=None: {"webhook": True}
+    )
+
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        user = _seed_notifiable_sighting(session, airport, "disabled-quiet-hours@example.com")
+        set_user_setting(session, user.id, "quiet_hours_enabled", "false")
+        set_user_setting(session, user.id, "quiet_hours_start", "22:00")
+        set_user_setting(session, user.id, "quiet_hours_end", "07:00")
+        set_user_setting(session, user.id, "quiet_hours_timezone", "UTC")
+
+    scheduler.notify_check_job()
+
+    with Session(test_engine) as session:
+        assert len(session.exec(select(NotificationLog)).all()) == 1
+
+
 def test_notify_check_job_matches_custom_watchlist_entry(test_engine, monkeypatch):
     monkeypatch.setattr(
         scheduler, "notify_all", lambda session, user_id, title, message, url=None: {"webhook": True}

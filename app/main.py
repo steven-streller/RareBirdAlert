@@ -496,16 +496,19 @@ CHANNEL_CHECKBOX_FIELDS = {
 }
 CHANNEL_TEXT_KEYS = [key for channel in CHANNELS.values() for key in channel["keys"]]
 
+QUIET_HOURS_KEYS = ["quiet_hours_enabled", "quiet_hours_start", "quiet_hours_end", "quiet_hours_timezone"]
+ALLOWED_SETTINGS_ANCHORS = (*CHANNELS, "quiet_hours")
+
 
 def _safe_channel_anchor(value: str) -> str:
     """Map arbitrary input onto a known-safe literal for use in a redirect URL/anchor.
 
-    Returns one of the CHANNELS keys, never the input itself - even on a
-    match, the returned string comes from the fixed CHANNELS collection, not
-    from `value` - so static analysis (and a would-be attacker) can't treat
-    the redirect target as carrying attacker-controlled data (CWE-601).
+    Returns one of ALLOWED_SETTINGS_ANCHORS, never the input itself - even on
+    a match, the returned string comes from that fixed collection, not from
+    `value` - so static analysis (and a would-be attacker) can't treat the
+    redirect target as carrying attacker-controlled data (CWE-601).
     """
-    for allowed in CHANNELS:
+    for allowed in ALLOWED_SETTINGS_ANCHORS:
         if allowed == value:
             return allowed
     return "general"
@@ -520,12 +523,19 @@ def settings_page(
 ):
     with Session(engine) as session:
         settings = {}
-        for key in list(CHANNEL_CHECKBOX_FIELDS) + [f"{c}_enabled" for c in CHANNELS] + CHANNEL_TEXT_KEYS:
+        for key in (
+            list(CHANNEL_CHECKBOX_FIELDS) + [f"{c}_enabled" for c in CHANNELS] + CHANNEL_TEXT_KEYS + QUIET_HOURS_KEYS
+        ):
             settings[key] = get_user_setting(session, current_user.id, key)
 
     flash = None
     if saved:
-        label = CHANNELS[saved]["label"] if saved in CHANNELS else "Einstellungen"
+        if saved in CHANNELS:
+            label = CHANNELS[saved]["label"]
+        elif saved == "quiet_hours":
+            label = "Ruhezeiten"
+        else:
+            label = "Einstellungen"
         flash = f"„{label}“ gespeichert."
     elif tested == "ok":
         flash = "Test-Benachrichtigung gesendet."
@@ -564,6 +574,13 @@ async def save_settings(request: Request, current_user: User = Depends(require_u
                     set_user_setting(session, current_user.id, key, "true" if form.get(key) else "false")
                 else:
                     set_user_setting(session, current_user.id, key, str(form.get(key, "")).strip())
+    elif section == "quiet_hours":
+        with Session(engine) as session:
+            set_user_setting(
+                session, current_user.id, "quiet_hours_enabled", "true" if form.get("quiet_hours_enabled") else "false"
+            )
+            for key in ("quiet_hours_start", "quiet_hours_end", "quiet_hours_timezone"):
+                set_user_setting(session, current_user.id, key, str(form.get(key, "")).strip())
 
     anchor = _safe_channel_anchor(section)
     return RedirectResponse(url=f"/settings?saved={anchor}#{anchor}", status_code=303)
