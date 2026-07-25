@@ -30,6 +30,14 @@
                     >Info zum Typ ↗</a>
                     {% endif %}
                 </div>
+                {% if row.sighting.route_origin_icao or row.sighting.route_destination_icao %}
+                <div class="route-info">
+                    Route: {{ row.sighting.route_origin_icao or '?' }} → {{ row.sighting.route_destination_icao or '?' }}
+                    {% if row.sighting.route_origin_name or row.sighting.route_destination_name %}
+                    <span class="route-names">({{ row.sighting.route_origin_name or '?' }} → {{ row.sighting.route_destination_name or '?' }})</span>
+                    {% endif %}
+                </div>
+                {% endif %}
                 <div class="match-label">Erkannt als: {{ row.matches|join(', ') }}</div>
             </div>
         </div>

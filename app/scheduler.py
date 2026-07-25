@@ -5,7 +5,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlmodel import Session, select
 
-from app import aircraft_db, flight_sources
+from app import adsbdb, aircraft_db, flight_sources
 from app.db import engine, get_setting, get_user_setting
 from app.matcher import AircraftInfo, matches
 from app.models import (
@@ -85,6 +85,11 @@ def _process_state(
     if not match_hits:
         return
 
+    # Best-effort only, and only for aircraft that actually matched - looking
+    # this up for every polled aircraft would be needless load against a
+    # free, unauthenticated API for traffic nobody cares about.
+    route = adsbdb.fetch_route(state.callsign) if state.callsign else None
+
     sighting = Sighting(
         airport_id=airport.id,
         icao24=state.icao24,
@@ -92,6 +97,10 @@ def _process_state(
         registration=aircraft.registration,
         typecode=aircraft.typecode,
         operator=aircraft.operator,
+        route_origin_icao=route.get("origin_icao") if route else None,
+        route_origin_name=route.get("origin_name") if route else None,
+        route_destination_icao=route.get("destination_icao") if route else None,
+        route_destination_name=route.get("destination_name") if route else None,
     )
     session.add(sighting)
     session.flush()  # assigns sighting.id, needed for the SightingMatch rows below
@@ -198,6 +207,11 @@ def notify_check_job() -> None:
                     f"{airport.name if airport else sighting.airport_id} gelandet. "
                     f"Erkannt als: {', '.join(m.label for m in relevant)}"
                 )
+                if sighting.route_origin_icao or sighting.route_destination_icao:
+                    message += (
+                        f"\nRoute: {sighting.route_origin_icao or '?'} → "
+                        f"{sighting.route_destination_icao or '?'}"
+                    )
                 results = notify_all(session, user.id, title, message)
                 if any(results.values()):
                     session.add(NotificationLog(user_id=user.id, sighting_id=sighting.id))

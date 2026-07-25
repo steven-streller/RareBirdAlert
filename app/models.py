@@ -100,6 +100,13 @@ class Sighting(SQLModel, table=True):
     typecode: Optional[str] = None
     operator: Optional[str] = None
     landed_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    # Best-effort route enrichment from adsbdb.com, looked up by callsign at
+    # match time (see app/adsbdb.py) - None when the callsign is missing,
+    # unknown to adsbdb, or the lookup failed.
+    route_origin_icao: Optional[str] = None
+    route_origin_name: Optional[str] = None
+    route_destination_icao: Optional[str] = None
+    route_destination_name: Optional[str] = None
 
 
 class SightingMatch(SQLModel, table=True):

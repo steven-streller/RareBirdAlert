@@ -151,6 +151,79 @@ def test_notify_check_job_respects_category_toggle_and_dedup(test_engine, monkey
         assert len(session.exec(select(NotificationLog)).all()) == 1
 
 
+def test_notify_check_job_includes_route_info_in_message(test_engine, monkeypatch):
+    captured = {}
+
+    def fake_notify_all(session, user_id, title, message, url=None):
+        captured["message"] = message
+        return {"webhook": True}
+
+    monkeypatch.setattr(scheduler, "notify_all", fake_notify_all)
+
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        user = User(email="route-watcher@example.com", password_hash="x")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        session.add(AirportWatch(user_id=user.id, airport_id=airport.id, radius_km=15))
+        set_user_setting(session, user.id, "webhook_enabled", "true")
+
+        sighting = Sighting(
+            airport_id=airport.id,
+            icao24="abc123",
+            callsign="GAF123",
+            typecode="EUFI",
+            route_origin_icao="EDDF",
+            route_destination_icao="EDDM",
+        )
+        session.add(sighting)
+        session.commit()
+        session.refresh(sighting)
+        session.add(
+            SightingMatch(sighting_id=sighting.id, category_key="eurofighter_typhoon", label="Eurofighter Typhoon")
+        )
+        session.commit()
+
+    scheduler.notify_check_job()
+
+    assert "Route: EDDF → EDDM" in captured["message"]
+
+
+def test_notify_check_job_omits_route_line_when_no_route_found(test_engine, monkeypatch):
+    captured = {}
+
+    def fake_notify_all(session, user_id, title, message, url=None):
+        captured["message"] = message
+        return {"webhook": True}
+
+    monkeypatch.setattr(scheduler, "notify_all", fake_notify_all)
+
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        user = User(email="no-route-watcher@example.com", password_hash="x")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        session.add(AirportWatch(user_id=user.id, airport_id=airport.id, radius_km=15))
+        set_user_setting(session, user.id, "webhook_enabled", "true")
+
+        sighting = Sighting(airport_id=airport.id, icao24="abc123", callsign="GAF123", typecode="EUFI")
+        session.add(sighting)
+        session.commit()
+        session.refresh(sighting)
+        session.add(
+            SightingMatch(sighting_id=sighting.id, category_key="eurofighter_typhoon", label="Eurofighter Typhoon")
+        )
+        session.commit()
+
+    scheduler.notify_check_job()
+
+    assert "Route:" not in captured["message"]
+
+
 def test_notify_check_job_matches_custom_watchlist_entry(test_engine, monkeypatch):
     monkeypatch.setattr(
         scheduler, "notify_all", lambda session, user_id, title, message, url=None: {"webhook": True}
@@ -213,6 +286,64 @@ def test_process_state_prefers_live_type_and_registration_over_metadata_db(test_
         sighting = session.exec(select(Sighting)).first()
         assert sighting.typecode == "EUFI"
         assert sighting.registration == "31+00"
+
+
+def test_process_state_enriches_sighting_with_route_on_match(test_engine, monkeypatch):
+    monkeypatch.setattr(
+        scheduler.aircraft_db,
+        "lookup",
+        lambda icao24: {"typecode": "EUFI", "registration": "31+00", "operator": "Luftwaffe"},
+    )
+    captured_callsigns = []
+
+    def fake_fetch_route(callsign):
+        captured_callsigns.append(callsign)
+        return {
+            "origin_icao": "EDDF",
+            "origin_name": "Frankfurt",
+            "destination_icao": "EDDM",
+            "destination_name": "München",
+        }
+
+    monkeypatch.setattr(scheduler.adsbdb, "fetch_route", fake_fetch_route)
+
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        category = session.exec(
+            select(AircraftCategory).where(AircraftCategory.key == "eurofighter_typhoon")
+        ).first()
+
+        state = StateVector(icao24="abc123", callsign="GAF123", on_ground=True, lat=50.0, lon=8.5)
+        scheduler._process_state(session, airport, state, [category], [])
+        session.commit()
+
+        sighting = session.exec(select(Sighting)).first()
+        assert sighting.route_origin_icao == "EDDF"
+        assert sighting.route_destination_icao == "EDDM"
+        assert sighting.route_destination_name == "München"
+    assert captured_callsigns == ["GAF123"]
+
+
+def test_process_state_skips_route_lookup_without_callsign(test_engine, monkeypatch):
+    monkeypatch.setattr(scheduler.aircraft_db, "lookup", lambda icao24: {"typecode": "EUFI"})
+
+    def fail(*a, **k):
+        raise AssertionError("must not look up a route without a callsign")
+
+    monkeypatch.setattr(scheduler.adsbdb, "fetch_route", fail)
+
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        category = session.exec(
+            select(AircraftCategory).where(AircraftCategory.key == "eurofighter_typhoon")
+        ).first()
+
+        state = StateVector(icao24="abc123", callsign=None, on_ground=True, lat=50.0, lon=8.5)
+        scheduler._process_state(session, airport, state, [category], [])
+        session.commit()
+
+        sighting = session.exec(select(Sighting)).first()
+        assert sighting.route_origin_icao is None
 
 
 def test_process_state_matches_adsb_flagged_category(test_engine, monkeypatch):

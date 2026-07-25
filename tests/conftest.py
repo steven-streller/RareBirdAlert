@@ -43,6 +43,28 @@ def client(test_engine, monkeypatch):
     return TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _no_real_adsbdb_calls(monkeypatch):
+    """Route enrichment (app/adsbdb.py) makes a real HTTP call keyed off the
+    aircraft's callsign whenever a sighting matches. Default it to a no-op
+    everywhere so tests that aren't specifically about route enrichment don't
+    hit the network or flake on it; individual tests override this via
+    monkeypatch when they need to assert on the enrichment itself.
+
+    Rebinds the *name* `adsbdb` inside app.scheduler's namespace rather than
+    patching app.adsbdb.fetch_route directly - the latter would mutate the
+    single shared `app.adsbdb` module object and break test_adsbdb_client.py,
+    which imports and exercises the real function directly.
+    """
+
+    class _StubAdsbdb:
+        @staticmethod
+        def fetch_route(callsign):
+            return None
+
+    monkeypatch.setattr("app.scheduler.adsbdb", _StubAdsbdb)
+
+
 def register(client: TestClient, email: str, password: str = "testpassword1"):
     return client.post(
         "/register",
