@@ -55,6 +55,20 @@ einer Minute dauern. Die Weboberfläche selbst ist währenddessen bereits
 erreichbar, nur die Typ-/Betreiber-Erkennung für neue Sichtungen läuft erst
 danach vollständig.
 
+## Wer ist Admin, und wie finde ich es heraus?
+
+Der erste jemals registrierte Account ist automatisch Admin und sieht als
+einziger den Menüpunkt **Admin** (Poll-Intervall, Datenquellen). Alle
+danach registrierten Accounts sind normale Nutzer, ohne Möglichkeit, das
+über die Weboberfläche zu ändern.
+
+Nach einem Upgrade von einer Version ohne Admin-Konzept wird der am
+längsten bestehende Account beim nächsten Start automatisch zum Admin -
+falls das die falsche Person ist (z. B. weil ein Test-Account zufällig
+zuerst angelegt wurde), lässt sich das aktuell nur direkt in der
+SQLite-Datenbank korrigieren (`UPDATE user SET is_admin = 1 WHERE email =
+'...'`, Container vorher stoppen).
+
 ## Registrierung geht nicht mehr
 
 `REGISTRATION_ENABLED=false` gesetzt (absichtlich, siehe

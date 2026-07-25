@@ -6,7 +6,7 @@ from pathlib import Path
 from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from app.models import AircraftCategory, Setting, UserSetting
+from app.models import AircraftCategory, Setting, User, UserSetting
 
 DB_PATH = os.environ.get("RAREBIRDALERT_DB_PATH", "/app/data/rarebirdalert.db")
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False, "timeout": 30})
@@ -134,9 +134,41 @@ USER_DEFAULT_SETTINGS = {
 USER_DEFAULT_SETTINGS.update({f"category_enabled_{c['key']}": "true" for c in CATEGORIES})
 
 
+def _ensure_user_is_admin_column() -> None:
+    """SQLModel.metadata.create_all only creates tables that don't exist yet
+    - it never alters an existing one. Instances that predate the is_admin
+    field have a `user` table without it, so add it by hand the one time
+    it's missing. There's no Alembic here (deliberately, for a project this
+    size), so this is the lightest migration that still works.
+    """
+    with engine.connect() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(user)").fetchall()}
+        if columns and "is_admin" not in columns:
+            conn.exec_driver_sql("ALTER TABLE user ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0")
+            conn.commit()
+
+
+def _ensure_admin_exists(session: Session) -> None:
+    """Guarantees exactly one admin exists after every startup.
+
+    Covers two cases: a brand-new instance (the first /register call sets
+    is_admin itself, so this is a no-op) and an instance upgraded from
+    before is_admin existed, where the migration above just added the column
+    defaulting everyone to False - here the earliest-created account is
+    promoted so the admin pages aren't locked out for everybody.
+    """
+    if session.exec(select(User).where(User.is_admin)).first():
+        return
+    first_user = session.exec(select(User).order_by(User.id)).first()
+    if first_user:
+        first_user.is_admin = True
+        session.add(first_user)
+
+
 def init_db() -> None:
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     SQLModel.metadata.create_all(engine)
+    _ensure_user_is_admin_column()
     with Session(engine) as session:
         for category in CATEGORIES:
             existing = session.exec(
@@ -148,6 +180,7 @@ def init_db() -> None:
             existing = session.exec(select(Setting).where(Setting.key == key)).first()
             if not existing:
                 session.add(Setting(key=key, value=value))
+        _ensure_admin_exists(session)
         session.commit()
 
 

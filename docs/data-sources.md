@@ -3,7 +3,9 @@
 RareBirdAlert kann Live-Flugzeugpositionen aus mehreren Datenquellen
 gleichzeitig beziehen: [OpenSky Network](https://opensky-network.org/) und
 [adsb.lol](https://api.adsb.lol/docs). Beide lassen sich unter
-**Einstellungen → Datenquellen** unabhängig voneinander an- und abschalten.
+**Admin → Datenquellen** (nur für den Admin-Account sichtbar, siehe
+[Konfiguration](configuration.md#admin-account)) unabhängig voneinander
+an- und abschalten.
 
 **Wie mehrere aktivierte Quellen zusammenspielen:** Pro Poll-Zyklus wird
 jede aktivierte Quelle für jeden beobachteten Flughafen abgefragt; die
@@ -34,7 +36,7 @@ Für ein deutlich höheres Kontingent:
    Client-Credentials) registrieren.
 3. Client-ID und -Secret **entweder** als `OPENSKY_CLIENT_ID`/
    `OPENSKY_CLIENT_SECRET` in der `.env`/den Container-Umgebungsvariablen
-   **oder** direkt unter Einstellungen → Datenquellen eintragen - siehe
+   **oder** direkt unter Admin → Datenquellen eintragen - siehe
    [Konfiguration](configuration.md#datenquellen-und-zugangsdaten) für die
    genaue Präzedenz zwischen beidem.
 
@@ -48,7 +50,7 @@ Flughafen (nicht pro Nutzer – beobachten mehrere Accounts denselben
 Flughafen, wird trotzdem nur einmal abgefragt, mit dem größten angeforderten
 Radius). Faustregel: `Anfragen pro Tag ≈ Anzahl Flughäfen × (86400 /
 Poll-Intervall in Sekunden)`. Bei vielen Flughäfen und anonymer Nutzung
-entsprechend das Poll-Intervall in den Einstellungen erhöhen.
+entsprechend das Poll-Intervall auf der Admin-Seite erhöhen.
 
 ### Grenzen
 

@@ -28,9 +28,7 @@ Danach [Konfiguration](configuration.md) für die Referenz aller Umgebungsvariab
   (Militär, Eurofighter Typhoon, Spezial-Transporter, historische Klassiker)
   plus beliebig viele eigene Einträge nach Flugzeugtyp, Kennung,
   ICAO24-Hexcode, Callsign-Präfix oder Betreiber – siehe [Watchlist](watchlist.md)
-- **Einstellungen** – Poll-Intervall ist global (ein OpenSky-Aufruf pro
-  beobachtetem Flughafen und Zyklus), die Benachrichtigungskanäle sind pro
-  Account:
+- **Einstellungen** – die Benachrichtigungskanäle sind pro Account:
     - **Pushover** (User Key + API Token von https://pushover.net)
     - **ntfy** (Server-URL + Topic, z.B. der öffentliche https://ntfy.sh oder
       eine eigene Instanz)
@@ -44,12 +42,16 @@ Danach [Konfiguration](configuration.md) für die Referenz aller Umgebungsvariab
   gespeicherten Stand dieses Kanals eine Testbenachrichtigung schickt. Eine
   Schritt-für-Schritt-Anleitung pro Kanal gibt's unter
   [Benachrichtigungskanäle](notifications.md).
+- **Admin** – nur für den Admin-Account sichtbar: Poll-Intervall (global, ein
+  API-Aufruf pro aktivierter Datenquelle, beobachtetem Flughafen und Zyklus)
+  und welche Datenquellen aktiv sind, siehe [Konfiguration](configuration.md#admin-account).
 
 Registrierung ist standardmäßig offen – jeder mit Zugriff auf die URL kann
-sich einen Account anlegen. Sobald alle gewünschten Accounts existieren,
-[`REGISTRATION_ENABLED=false`](configuration.md) setzen, um weitere
-Registrierungen zu blockieren – bestehende Accounts können sich weiterhin
-einloggen.
+sich einen Account anlegen. Der **erste** registrierte Account wird
+automatisch zum Admin, alle weiteren sind normale Nutzer. Sobald alle
+gewünschten Accounts existieren, [`REGISTRATION_ENABLED=false`](configuration.md)
+setzen, um weitere Registrierungen zu blockieren – bestehende Accounts können
+sich weiterhin einloggen.
 
 Beim ersten Start wird sofort einmal die Flugzeug-Metadatenbank geladen (kann
 bis zu einer Minute dauern) und der erste Poll-Zyklus angestoßen; danach läuft
