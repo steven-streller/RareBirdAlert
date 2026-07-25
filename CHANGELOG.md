@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.1...v0.1.2) (2026-07-25)
+
+
+### Features
+
+* add adsb.lol as a second data source, merge multiple sources per poll ([#14](https://github.com/steven-streller/RareBirdAlert/issues/14)) ([dae75cf](https://github.com/steven-streller/RareBirdAlert/commit/dae75cfefe132a3c7419dcced5cea5222bc32313))
+
 ## [0.1.1](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.0...v0.1.1) (2026-07-25)
 
 
