@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.2...v0.1.3) (2026-07-25)
+
+
+### Features
+
+* add live map view of watched airports and aircraft ([#16](https://github.com/steven-streller/RareBirdAlert/issues/16)) ([8fcdd8a](https://github.com/steven-streller/RareBirdAlert/commit/8fcdd8a81a722c7f2d4c483fd4dfbf7ae171a566))
+* introduce an admin account, move poll interval + data sources there ([#21](https://github.com/steven-streller/RareBirdAlert/issues/21)) ([bbcc340](https://github.com/steven-streller/RareBirdAlert/commit/bbcc3403d64193a566b45f165e76f8028b77df01))
+
 ## [0.1.2](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.1...v0.1.2) (2026-07-25)
 
 
