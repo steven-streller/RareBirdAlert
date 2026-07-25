@@ -6,6 +6,20 @@ einer passenden Sichtung gehen alle aktivierten Kanäle gleichzeitig raus.
 Jeder Kanal hat einen eigenen "Testen"-Button, der mit dem zuletzt
 gespeicherten Stand eine Testbenachrichtigung schickt.
 
+## Ruhezeiten
+
+Unter **Einstellungen → Ruhezeiten** lässt sich pro Account ein
+Zeitfenster (mit Zeitzone) festlegen, in dem keine Benachrichtigungen
+verschickt werden - z. B. 22:00-07:00, um nachts nicht geweckt zu werden.
+Beginn nach Ende (wie im Beispiel) gilt als über Mitternacht andauernd.
+
+Sichtungen während der Ruhezeit werden **nicht verworfen**: sie gelten
+weiterhin als "noch nicht benachrichtigt" und werden beim nächsten
+30-Sekunden-Prüfzyklus nach Ende der Ruhezeit ganz normal zugestellt - kein
+Digest, keine Sammel-Benachrichtigung, nur eine Verzögerung. Eine
+ungültige Zeitzone fällt automatisch auf UTC zurück, statt die
+Benachrichtigung fehlschlagen zu lassen.
+
 ## Pushover
 
 1. Account auf [pushover.net](https://pushover.net) anlegen, App auf dem

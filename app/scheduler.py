@@ -20,6 +20,7 @@ from app.models import (
     WatchlistEntry,
 )
 from app.notifications import enabled_channels, notify_all
+from app.quiet_hours import is_within_quiet_hours
 from app.state_vector import StateVector
 
 logger = logging.getLogger("rarebirdalert.scheduler")
@@ -182,6 +183,17 @@ def notify_check_job() -> None:
             already_notified = set(
                 session.exec(select(NotificationLog.sighting_id).where(NotificationLog.user_id == user.id))
             )
+
+            if get_user_setting(session, user.id, "quiet_hours_enabled") == "true" and is_within_quiet_hours(
+                datetime.utcnow(),
+                get_user_setting(session, user.id, "quiet_hours_start"),
+                get_user_setting(session, user.id, "quiet_hours_end"),
+                get_user_setting(session, user.id, "quiet_hours_timezone"),
+            ):
+                # Skip entirely without touching NotificationLog - the
+                # sighting stays "not yet notified" and goes out normally on
+                # a later cycle once quiet hours end, instead of being lost.
+                continue
 
             for sighting in sightings:
                 if sighting.id in already_notified or sighting.airport_id not in watched_airport_ids:

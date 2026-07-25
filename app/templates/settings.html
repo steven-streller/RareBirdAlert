@@ -5,6 +5,36 @@
 
 {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
 
+<h2>Ruhezeiten</h2>
+<section class="settings-section" id="quiet_hours">
+    <form class="settings-form" method="post" action="/settings">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
+        <input type="hidden" name="_section" value="quiet_hours" />
+        <label class="checkbox-row">
+            <input type="checkbox" name="quiet_hours_enabled" {{ 'checked' if settings.quiet_hours_enabled == 'true' else '' }} />
+            Aktiviert - keine Benachrichtigungen in diesem Zeitfenster
+        </label>
+        <label>
+            Beginn
+            <input type="time" name="quiet_hours_start" value="{{ settings.quiet_hours_start }}" />
+        </label>
+        <label>
+            Ende
+            <input type="time" name="quiet_hours_end" value="{{ settings.quiet_hours_end }}" />
+        </label>
+        <label>
+            Zeitzone (IANA-Name)
+            <input type="text" name="quiet_hours_timezone" value="{{ settings.quiet_hours_timezone }}" placeholder="Europe/Berlin" />
+        </label>
+        <button class="primary" type="submit">Speichern</button>
+    </form>
+    <p class="item-sub">
+        Sichtungen während der Ruhezeit werden nicht verworfen, sondern
+        einfach erst nach deren Ende zugestellt. Beginn nach Ende (z. B.
+        22:00-07:00) gilt als über Mitternacht andauernd.
+    </p>
+</section>
+
 <h2>Benachrichtigungskanäle</h2>
 {% for key, channel in channels.items() %}
     {% set is_enabled = settings[key + '_enabled'] == 'true' %}

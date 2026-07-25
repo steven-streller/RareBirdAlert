@@ -129,6 +129,12 @@ USER_DEFAULT_SETTINGS = {
     "email_from": "",
     "email_to": "",
     "email_use_tls": "true",
+    # Quiet hours - notifications matched while inside this window are
+    # neither sent nor logged, so they're delivered normally once it ends.
+    "quiet_hours_enabled": "false",
+    "quiet_hours_start": "22:00",
+    "quiet_hours_end": "07:00",
+    "quiet_hours_timezone": "Europe/Berlin",
 }
 # Every built-in category is enabled by default so a fresh account gets
 # alerts immediately without having to configure anything first.
