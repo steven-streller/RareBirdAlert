@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Watchlist - RareBirdAlert{% endblock %}
+{% block content %}
+<h1>Watchlist</h1>
+
+{% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
+
+<h2>Eingebaute Kategorien</h2>
+<p class="empty">
+    Vorkonfigurierte, editierbare Startpunkte - kein Anspruch auf
+    Vollständigkeit. Details siehe <a href="/settings">Dokumentation</a>.
+</p>
+{% for category in categories %}
+<div class="item-row">
+    <div class="item-main">
+        <div class="item-title">{{ category.label }}</div>
+        {% if category.description %}<div class="item-sub">{{ category.description }}</div>{% endif %}
+    </div>
+    <form method="post" action="/watchlist/category/{{ category.key }}/toggle">
+        <button class="toggle-btn {{ 'active' if category.enabled else '' }}" type="submit">
+            {{ 'Aktiv' if category.enabled else 'Inaktiv' }}
+        </button>
+    </form>
+</div>
+{% endfor %}
+
+<h2>Eigene Watchlist-Einträge</h2>
+{% if entries %}
+    {% for entry in entries %}
+    <div class="item-row">
+        <div class="item-main">
+            <div class="item-title">{{ entry.label }}</div>
+            <div class="item-sub">{{ match_type_labels.get(entry.match_type, entry.match_type) }}: {{ entry.pattern }}</div>
+        </div>
+        <form method="post" action="/watchlist/{{ entry.id }}/delete">
+            <button class="link-button" type="submit">Löschen</button>
+        </form>
+    </div>
+    {% endfor %}
+{% else %}
+    <p class="empty">Noch keine eigenen Einträge.</p>
+{% endif %}
+
+<form class="settings-form" method="post" action="/watchlist">
+    <label>
+        Bezeichnung
+        <input type="text" name="label" placeholder="Beluga XL" required />
+    </label>
+    <label>
+        Kriterium
+        <select name="match_type">
+            <option value="typecode">Flugzeugtyp (ICAO-Typcode)</option>
+            <option value="registration">Kennung (Registration)</option>
+            <option value="icao24">ICAO24-Hexcode</option>
+            <option value="callsign_prefix">Callsign-Präfix</option>
+            <option value="operator_contains">Betreiber enthält</option>
+        </select>
+    </label>
+    <label>
+        Muster (mehrere durch Komma trennen)
+        <input type="text" name="pattern" placeholder="F-GXLG, F-GXLH, F-GXLI" required />
+    </label>
+    <button class="primary" type="submit">Eintrag hinzufügen</button>
+</form>
+{% endblock %}

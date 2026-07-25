@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - RareBirdAlert{% endblock %}
+{% block content %}
+<h1>Sichtungs-Feed</h1>
+
+{% if not has_airports %}
+<p class="empty">Du beobachtest noch keine Flughäfen. Lege welche unter <a href="/airports">Flughäfen</a> an.</p>
+{% endif %}
+
+{% if day_groups %}
+    {% for day_label, rows in day_groups %}
+    <h2 class="day-heading">{{ day_label }}</h2>
+    <div class="timeline">
+        {% for row in rows %}
+        <div class="timeline-row">
+            <div class="timeline-time">{{ row.sighting.landed_at.strftime('%H:%M') }}</div>
+            <div class="timeline-content">
+                <div class="timeline-head">
+                    <span class="airport-tag">{{ row.airport.icao if row.airport else '?' }}</span>
+                    <span class="callsign">{{ row.sighting.callsign or row.sighting.icao24 }}</span>
+                </div>
+                <div class="aircraft-type">
+                    {{ row.sighting.typecode or 'unbekannter Typ' }}{% if row.sighting.operator %} · {{ row.sighting.operator }}{% endif %}
+                </div>
+                <div class="match-label">Erkannt als: {{ row.matches|join(', ') }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+{% else %}
+    <p class="empty">Noch keine Sichtungen. Sobald ein besonderes Flugzeug an einem deiner Flughäfen landet, taucht es hier auf.</p>
+{% endif %}
+{% endblock %}

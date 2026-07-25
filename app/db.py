@@ -1,0 +1,204 @@
+import csv
+import os
+from functools import lru_cache
+from pathlib import Path
+
+from sqlalchemy import event
+from sqlmodel import Session, SQLModel, create_engine, select
+
+from app.models import AircraftCategory, Setting, UserSetting
+
+DB_PATH = os.environ.get("RAREBIRDALERT_DB_PATH", "/app/data/rarebirdalert.db")
+engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False, "timeout": 30})
+
+
+@event.listens_for(engine, "connect")
+def _set_sqlite_pragma(dbapi_connection, _connection_record) -> None:
+    # WAL lets readers (web requests) proceed while a writer (e.g. the
+    # aircraft-db bulk import, which touches hundreds of thousands of rows)
+    # holds a transaction open - without it, concurrent requests intermittently
+    # fail with "database is locked". busy_timeout is a second line of
+    # defense for the remaining brief writer-vs-writer contention.
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA busy_timeout=30000")
+    cursor.close()
+
+AIRPORT_DIRECTORY_CSV = Path(__file__).parent / "data" / "airports.csv"
+
+# Curated starting point, not an exhaustive/authoritative database - see
+# docs/watchlist.md. Users extend coverage (e.g. BelugaXL by registration)
+# with their own WatchlistEntry rows.
+CATEGORIES = [
+    {
+        "key": "military",
+        "label": "Militär",
+        "description": (
+            "Häufige militärische Callsign-Präfixe (u. a. Luftwaffe, USAF, RAF, "
+            "französische/italienische Luftstreitkräfte, NATO). Erkennt nicht "
+            "jeden Militärflug - manche fliegen unter zivilem Callsign."
+        ),
+        "match_type": "callsign_prefix",
+        "pattern": (
+            "GAF,GAM,RCH,REACH,RRR,ASCOT,NATO,NAF,CTM,FAF,IAM,CEFA,"
+            "HOOK,DUKE,GRZ,BAF,CFC,VIVI"
+        ),
+    },
+    {
+        "key": "eurofighter_typhoon",
+        "label": "Eurofighter Typhoon",
+        "description": "Erkennt den Flugzeugtyp direkt über den ICAO-Typcode, unabhängig vom Callsign.",
+        "match_type": "typecode",
+        "pattern": "EUFI,EFA",
+    },
+    {
+        "key": "heavy_lift_special",
+        "label": "Spezial-Transporter",
+        "description": (
+            "Airbus Beluga (A300-600ST), Antonov An-124 und Lockheed C-5 Galaxy. "
+            "Für die Beluga XL bitte eine eigene Watchlist-Eintragung per "
+            "Kennung anlegen, siehe Dokumentation."
+        ),
+        "match_type": "typecode",
+        "pattern": "A3ST,A124,C5,C5M",
+    },
+    {
+        "key": "historic_classic",
+        "label": "Historische Klassiker",
+        "description": "Douglas DC-3/C-47, Boeing B-17 und B-29 - Oldtimer, die selten noch fliegen.",
+        "match_type": "typecode",
+        "pattern": "DC3,C47,B17,B29",
+    },
+]
+
+GLOBAL_DEFAULT_SETTINGS = {
+    "poll_interval_seconds": "90",
+}
+
+USER_DEFAULT_SETTINGS = {
+    # Pushover
+    "pushover_enabled": "false",
+    "pushover_user_key": "",
+    "pushover_api_token": "",
+    # ntfy
+    "ntfy_enabled": "false",
+    "ntfy_server_url": "https://ntfy.sh",
+    "ntfy_topic": "",
+    "ntfy_token": "",
+    # Telegram
+    "telegram_enabled": "false",
+    "telegram_bot_token": "",
+    "telegram_chat_id": "",
+    # Discord
+    "discord_enabled": "false",
+    "discord_webhook_url": "",
+    # Generic webhook
+    "webhook_enabled": "false",
+    "webhook_url": "",
+    # Email
+    "email_enabled": "false",
+    "email_smtp_host": "",
+    "email_smtp_port": "587",
+    "email_smtp_user": "",
+    "email_smtp_password": "",
+    "email_from": "",
+    "email_to": "",
+    "email_use_tls": "true",
+}
+# Every built-in category is enabled by default so a fresh account gets
+# alerts immediately without having to configure anything first.
+USER_DEFAULT_SETTINGS.update({f"category_enabled_{c['key']}": "true" for c in CATEGORIES})
+
+
+def init_db() -> None:
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        for category in CATEGORIES:
+            existing = session.exec(
+                select(AircraftCategory).where(AircraftCategory.key == category["key"])
+            ).first()
+            if not existing:
+                session.add(AircraftCategory(**category))
+        for key, value in GLOBAL_DEFAULT_SETTINGS.items():
+            existing = session.exec(select(Setting).where(Setting.key == key)).first()
+            if not existing:
+                session.add(Setting(key=key, value=value))
+        session.commit()
+
+
+def get_setting(session: Session, key: str) -> str:
+    setting = session.exec(select(Setting).where(Setting.key == key)).first()
+    return setting.value if setting else GLOBAL_DEFAULT_SETTINGS.get(key, "")
+
+
+def set_setting(session: Session, key: str, value: str) -> None:
+    setting = session.exec(select(Setting).where(Setting.key == key)).first()
+    if setting:
+        setting.value = value
+        session.add(setting)
+    else:
+        session.add(Setting(key=key, value=value))
+    session.commit()
+
+
+def get_user_setting(session: Session, user_id: int, key: str) -> str:
+    setting = session.exec(
+        select(UserSetting).where(UserSetting.user_id == user_id, UserSetting.key == key)
+    ).first()
+    return setting.value if setting else USER_DEFAULT_SETTINGS.get(key, "")
+
+
+def set_user_setting(session: Session, user_id: int, key: str, value: str) -> None:
+    setting = session.exec(
+        select(UserSetting).where(UserSetting.user_id == user_id, UserSetting.key == key)
+    ).first()
+    if setting:
+        setting.value = value
+        session.add(setting)
+    else:
+        session.add(UserSetting(user_id=user_id, key=key, value=value))
+    session.commit()
+
+
+# --- Bundled airport directory (ICAO -> name/coordinates lookup) --------------
+# Loaded once from app/data/airports.csv (derived from the public-domain
+# OurAirports dataset) so adding an airport never needs an external API call.
+
+
+@lru_cache(maxsize=1)
+def _load_airport_directory() -> dict[str, dict]:
+    directory: dict[str, dict] = {}
+    with open(AIRPORT_DIRECTORY_CSV, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            directory[row["icao"]] = {
+                "icao": row["icao"],
+                "iata": row["iata"] or None,
+                "name": row["name"],
+                "lat": float(row["lat"]),
+                "lon": float(row["lon"]),
+                "municipality": row["municipality"] or None,
+                "country": row["country"] or None,
+            }
+    return directory
+
+
+def lookup_airport_directory(icao: str) -> dict | None:
+    return _load_airport_directory().get(icao.strip().upper())
+
+
+def search_airport_directory(query: str, limit: int = 20) -> list[dict]:
+    query = query.strip().upper()
+    if len(query) < 2:
+        return []
+    results = []
+    for entry in _load_airport_directory().values():
+        if (
+            entry["icao"].startswith(query)
+            or (entry["iata"] and entry["iata"] == query)
+            or query in entry["name"].upper()
+        ):
+            results.append(entry)
+            if len(results) >= limit:
+                break
+    return results

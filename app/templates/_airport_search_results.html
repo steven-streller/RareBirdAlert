@@ -1,0 +1,17 @@
+{% if results %}
+    {% for e in results %}
+    <div class="item-row">
+        <div class="item-main">
+            <div class="item-title">{{ e.icao }}{% if e.iata %} / {{ e.iata }}{% endif %} — {{ e.name }}</div>
+            <div class="item-sub">{{ e.municipality }}{% if e.municipality and e.country %}, {% endif %}{{ e.country }}</div>
+        </div>
+        <form method="post" action="/airports">
+            <input type="hidden" name="icao" value="{{ e.icao }}" />
+            <input type="number" name="radius_km" value="15" min="1" max="200" style="width: 4.5rem" title="Radius in km" />
+            <button class="secondary" type="submit">Hinzufügen</button>
+        </form>
+    </div>
+    {% endfor %}
+{% elif query %}
+    <p class="empty">Keine Flughäfen gefunden.</p>
+{% endif %}
