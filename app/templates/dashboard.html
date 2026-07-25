@@ -21,6 +21,14 @@
                 </div>
                 <div class="aircraft-type">
                     {{ row.sighting.typecode or 'unbekannter Typ' }}{% if row.sighting.operator %} · {{ row.sighting.operator }}{% endif %}
+                    {% if row.sighting.typecode %}
+                    <a
+                        href="https://skybrary.aero/aircraft/{{ row.sighting.typecode|lower }}"
+                        target="_blank"
+                        rel="noopener"
+                        class="type-info-link"
+                    >Info zum Typ ↗</a>
+                    {% endif %}
                 </div>
                 <div class="match-label">Erkannt als: {{ row.matches|join(', ') }}</div>
             </div>
