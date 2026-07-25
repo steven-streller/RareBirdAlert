@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Karte - RareBirdAlert{% endblock %}
+{% block content %}
+<h1>Karte</h1>
+<p class="empty">
+    Zeigt deine beobachteten Flughäfen mit Suchradius. „Flugzeuge laden“ fragt
+    die aktivierten Datenquellen live ab und plottet, was gerade in der Nähe
+    gemeldet wird - praktisch, um zu prüfen, dass die Anbindung tatsächlich
+    Daten liefert.
+</p>
+
+{% if not watches %}
+<p class="empty">Noch keine Flughäfen beobachtet. Lege welche unter <a href="/airports">Flughäfen</a> an.</p>
+{% endif %}
+
+<button class="secondary" id="load-aircraft-btn" type="button">Flugzeuge laden</button>
+<span id="map-status" class="item-sub"></span>
+<div id="map" style="height: 65vh; margin-top: 1rem; border-radius: 8px;"></div>
+
+<link rel="stylesheet" href="/static/leaflet/leaflet.css" />
+<script src="/static/leaflet/leaflet.js"></script>
+<script>
+    const watches = {{ watches | tojson }};
+    const map = L.map("map");
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>-Mitwirkende"
+    }).addTo(map);
+
+    const bounds = [];
+    watches.forEach(function (w) {
+        L.marker([w.lat, w.lon]).addTo(map).bindPopup("<strong>" + w.icao + "</strong><br>" + w.name);
+        L.circle([w.lat, w.lon], { radius: w.radius_km * 1000, color: "#3aa0ff", fillOpacity: 0.05 }).addTo(map);
+        bounds.push([w.lat, w.lon]);
+    });
+    if (bounds.length) {
+        map.fitBounds(bounds, { padding: [30, 30] });
+    } else {
+        map.setView([50, 10], 4);
+    }
+
+    const aircraftLayer = L.layerGroup().addTo(map);
+
+    function loadAircraft() {
+        const statusEl = document.getElementById("map-status");
+        statusEl.textContent = "Lade...";
+        fetch("/map/live")
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                aircraftLayer.clearLayers();
+                data.aircraft.forEach(function (ac) {
+                    const color = ac.on_ground ? "#4caf50" : "#3aa0ff";
+                    const marker = L.circleMarker([ac.lat, ac.lon], {
+                        radius: 6,
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.8
+                    });
+                    const label = ac.callsign || ac.icao24;
+                    const flags = [];
+                    if (ac.flagged_military) flags.push("Militär");
+                    if (ac.flagged_pia) flags.push("PIA");
+                    if (ac.flagged_ladd) flags.push("LADD");
+                    marker.bindPopup(
+                        "<strong>" + label + "</strong><br>" +
+                        (ac.typecode || "unbekannter Typ") + (ac.registration ? " · " + ac.registration : "") + "<br>" +
+                        (ac.on_ground ? "am Boden" : "in der Luft") +
+                        (flags.length ? "<br>" + flags.join(", ") : "")
+                    );
+                    marker.addTo(aircraftLayer);
+                });
+                statusEl.textContent = data.aircraft.length + " Flugzeug(e) gefunden.";
+            })
+            .catch(function () {
+                statusEl.textContent = "Fehler beim Laden - siehe Server-Logs.";
+            });
+    }
+
+    document.getElementById("load-aircraft-btn").addEventListener("click", loadAircraft);
+    if (watches.length) {
+        loadAircraft();
+    }
+</script>
+{% endblock %}

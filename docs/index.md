@@ -24,6 +24,10 @@ Danach [Konfiguration](configuration.md) für die Referenz aller Umgebungsvariab
 - **Flughäfen** – per ICAO-/IATA-Code oder Namen suchen (gebündeltes
   Verzeichnis, kein externer Geocoding-Aufruf nötig) und mit eigenem
   Suchradius hinzufügen
+- **Karte** – beobachtete Flughäfen mit Suchradius auf einer Leaflet-/
+  OpenStreetMap-Karte, plus ein Live-Abruf der aktuell von den aktivierten
+  Datenquellen gemeldeten Flugzeuge in der Nähe – praktisch, um direkt zu
+  sehen, dass die Anbindung funktioniert
 - **Watchlist** – eine eingebaute, editierbare Startliste an Kategorien
   (Militär, Eurofighter Typhoon, Spezial-Transporter, historische Klassiker)
   plus beliebig viele eigene Einträge nach Flugzeugtyp, Kennung,
