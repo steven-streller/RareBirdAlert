@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.4...v0.1.5) (2026-07-25)
+
+
+### Bug Fixes
+
+* URL redirection from remote source in _safe_channel_anchor (CodeQL) ([#26](https://github.com/steven-streller/RareBirdAlert/issues/26)) ([2079b98](https://github.com/steven-streller/RareBirdAlert/commit/2079b98348f8d47999e62284881ec2bdacb2c768))
+
 ## [0.1.4](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.3...v0.1.4) (2026-07-25)
 
 
