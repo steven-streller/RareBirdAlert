@@ -5,7 +5,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlmodel import Session, select
 
-from app import aircraft_db, opensky
+from app import aircraft_db, flight_sources
 from app.db import engine, get_setting, get_user_setting
 from app.matcher import AircraftInfo, matches
 from app.models import (
@@ -20,7 +20,7 @@ from app.models import (
     WatchlistEntry,
 )
 from app.notifications import enabled_channels, notify_all
-from app.opensky import StateVector
+from app.state_vector import StateVector
 
 logger = logging.getLogger("rarebirdalert.scheduler")
 
@@ -58,13 +58,19 @@ def _process_state(
     if not landed_event:
         return
 
+    # Live sources (e.g. adsb.lol) sometimes provide type/registration
+    # directly - prefer those over the metadata-DB cache, which only ever
+    # covers OpenSky (no live type/reg) and can lag behind a live re-registration.
     meta = aircraft_db.lookup(state.icao24) or {}
     aircraft = AircraftInfo(
         icao24=state.icao24,
         callsign=state.callsign,
-        registration=meta.get("registration"),
-        typecode=meta.get("typecode"),
+        registration=state.registration or meta.get("registration"),
+        typecode=state.typecode or meta.get("typecode"),
         operator=meta.get("operator"),
+        flagged_military=state.flagged_military,
+        flagged_pia=state.flagged_pia,
+        flagged_ladd=state.flagged_ladd,
     )
 
     # (category_key, watchlist_entry_id, display label) for everything that matched
@@ -135,7 +141,7 @@ def poll_job() -> None:
             airport = airports.get(airport_id)
             if not airport:
                 continue
-            for state in opensky.fetch_states(airport.lat, airport.lon, radius_km):
+            for state in flight_sources.fetch_merged_states(session, airport.lat, airport.lon, radius_km):
                 _process_state(session, airport, state, categories, watchlist_entries)
         session.commit()
 

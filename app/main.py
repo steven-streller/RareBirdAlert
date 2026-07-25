@@ -10,9 +10,11 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 from starlette.middleware.sessions import SessionMiddleware
 
+from app import flight_sources
 from app.auth import get_current_user, login_user, logout_user, require_user
 from app.db import (
     engine,
+    get_effective_setting,
     get_setting,
     get_user_setting,
     init_db,
@@ -391,7 +393,8 @@ CHANNEL_CHECKBOX_FIELDS = {
 }
 CHANNEL_TEXT_KEYS = [key for channel in CHANNELS.values() for key in channel["keys"]]
 
-ALLOWED_SETTINGS_ANCHORS = ("general", *CHANNELS)
+SOURCE_ANCHORS = tuple(f"source_{key}" for key in flight_sources.SOURCES)
+ALLOWED_SETTINGS_ANCHORS = ("general", *SOURCE_ANCHORS, *CHANNELS)
 
 
 def _safe_settings_anchor(value: str) -> str:
@@ -418,9 +421,22 @@ def settings_page(
         for key in list(CHANNEL_CHECKBOX_FIELDS) + [f"{c}_enabled" for c in CHANNELS] + CHANNEL_TEXT_KEYS:
             settings[key] = get_user_setting(session, current_user.id, key)
 
+        source_settings = {}
+        for key, source in flight_sources.SOURCES.items():
+            source_settings[f"source_enabled_{key}"] = get_setting(session, f"source_enabled_{key}")
+            for field_key in source["keys"]:
+                value, locked = get_effective_setting(session, field_key)
+                source_settings[field_key] = value
+                source_settings[f"{field_key}__locked"] = locked
+
     flash = None
     if saved:
-        label = CHANNELS[saved]["label"] if saved in CHANNELS else "Allgemein"
+        if saved in CHANNELS:
+            label = CHANNELS[saved]["label"]
+        elif saved.removeprefix("source_") in flight_sources.SOURCES:
+            label = flight_sources.SOURCES[saved.removeprefix("source_")]["label"]
+        else:
+            label = "Allgemein"
         flash = f"„{label}“ gespeichert."
     elif tested == "ok":
         flash = "Test-Benachrichtigung gesendet."
@@ -435,6 +451,8 @@ def settings_page(
             "current_user": current_user,
             "settings": settings,
             "channels": CHANNELS,
+            "sources": flight_sources.SOURCES,
+            "source_settings": source_settings,
             "flash": flash,
         },
     )
@@ -450,6 +468,13 @@ async def save_settings(request: Request, current_user: User = Depends(require_u
             poll_interval = max(30, int(form.get("poll_interval_seconds") or 90))
             set_setting(session, "poll_interval_seconds", str(poll_interval))
             reschedule_poll_job(poll_interval)
+        elif section.removeprefix("source_") in flight_sources.SOURCES:
+            key = section.removeprefix("source_")
+            set_setting(session, f"source_enabled_{key}", "true" if form.get("source_enabled") else "false")
+            for field_key in flight_sources.SOURCES[key]["keys"]:
+                _current_value, locked = get_effective_setting(session, field_key)
+                if not locked:
+                    set_setting(session, field_key, str(form.get(field_key, "")).strip())
         elif section in CHANNELS:
             set_user_setting(
                 session,

@@ -34,25 +34,50 @@ identisch – das einmal pro Flughafen bei OpenSky abzufragen und zu teilen
 spart unnötige API-Aufrufe. Wer benachrichtigt werden will und worüber ist
 dagegen inhärent persönlich.
 
-## Erkennung (`app/opensky.py`, `app/aircraft_db.py`, `app/matcher.py`, `app/scheduler.py`)
+## Datenquellen (`app/state_vector.py`, `app/opensky.py`, `app/adsblol.py`, `app/flight_sources.py`)
+
+`StateVector` (in `state_vector.py`, dependency-free, um einen Zirkel-Import
+zu vermeiden) ist die gemeinsame Struktur, die jeder Quellen-Client liefert.
+`flight_sources.SOURCES` registriert die Quellen nach dem gleichen Muster wie
+`CHANNELS` in `notifications.py` (Label, `fetch`-Funktion, Formularfelder).
+`fetch_merged_states(session, lat, lon, radius_km)` ruft alle aktivierten
+Quellen ab und merged die Ergebnisse nach `icao24`: fehlende Felder einer
+Quelle werden durch eine andere ergänzt, `on_ground` ist ein OR über alle
+Quellen (eine frische "am Boden"-Meldung wird nie durch eine evtl.
+verzögerte "noch in der Luft"-Meldung einer anderen Quelle unterdrückt).
+
+Zugangsdaten (aktuell nur OpenSkys Client-ID/-Secret) werden über
+`db.get_effective_setting()` aufgelöst: eine gesetzte Umgebungsvariable
+gewinnt immer, sonst der in `Setting` gespeicherte Wert aus der
+Einstellungen-Seite - `flight_sources._source_config()` ist die einzige
+Stelle, die diese Präzedenz auflöst, die einzelnen Client-Module
+(`opensky.py`, `adsblol.py`) bekommen fertig aufgelöste Werte per `cfg`-Dict
+übergeben und kennen `os.environ` gar nicht mehr.
+
+## Erkennung (`app/aircraft_db.py`, `app/matcher.py`, `app/scheduler.py`)
 
 `poll_job` läuft alle `poll_interval_seconds` (Standard 90, global
 einstellbar). Für jeden eindeutig beobachteten Flughafen (mit dem größten von
-allen Watchern angeforderten Radius) liefert `opensky.fetch_states` die
-aktuellen ADS-B-Zustände im Umkreis. Für jedes Flugzeug prüft
-`scheduler._process_state`:
+allen Watchern angeforderten Radius) liefert `flight_sources.fetch_merged_states`
+die aktuellen ADS-B-Zustände im Umkreis, gemerged über alle aktivierten
+Quellen. Für jedes Flugzeug prüft `scheduler._process_state`:
 
 1. **Landeerkennung**: `AircraftTrackState` je (icao24, Flughafen) merkt sich
    den letzten `on_ground`-Status. Ein Wechsel von `False` auf `True` gilt
    als Landung; bleibt das Flugzeug am Boden, löst der nächste Poll nichts
    erneut aus. Nach 6 Stunden ohne Sichtung wird der Zustand vergessen, damit
    eine spätere Rückkehr wieder als neue Landung zählt.
-2. **Typ-Anreicherung**: `aircraft_db.lookup(icao24)` liefert Typ, Kennung
-   und Betreiber aus dem lokalen Cache der OpenSky-Flugzeugdatenbank.
-3. **Matching**: `matcher.matches(...)` prüft die angereicherten Daten gegen
-   alle aktiven `AircraftCategory`- und `WatchlistEntry`-Muster (über alle
-   Nutzer hinweg). Kein Treffer → verworfen, kein `Sighting`-Datensatz.
-   Treffer → `Sighting` + `SightingMatch`-Zeile(n) angelegt.
+2. **Typ-Anreicherung**: Typ/Kennung kommen bevorzugt direkt vom `StateVector`
+   (sofern eine aktivierte Quelle wie adsb.lol das live liefert), sonst als
+   Fallback aus `aircraft_db.lookup(icao24)` (lokaler Cache der
+   OpenSky-Flugzeugdatenbank). Der Betreiber kommt ausschließlich aus
+   `aircraft_db`, da keine Live-Quelle ihn mitliefert.
+3. **Matching**: `matcher.matches(...)` prüft die angereicherten Daten
+   (inkl. der `flagged_military`/`flagged_pia`/`flagged_ladd`-Flags, die
+   adsb.lols `dbFlags`-Bitmaske setzt) gegen alle aktiven
+   `AircraftCategory`- und `WatchlistEntry`-Muster (über alle Nutzer
+   hinweg). Kein Treffer → verworfen, kein `Sighting`-Datensatz. Treffer →
+   `Sighting` + `SightingMatch`-Zeile(n) angelegt.
 
 `notify_check_job` läuft alle 30 Sekunden und iteriert über die letzten 200
 Sichtungen und alle Nutzer: benachrichtigt wird, wer den betroffenen

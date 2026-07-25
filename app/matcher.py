@@ -3,7 +3,14 @@ cheap to unit test in isolation from the scheduler and OpenSky client."""
 
 from dataclasses import dataclass
 
-MATCH_TYPES = ("typecode", "registration", "icao24", "callsign_prefix", "operator_contains")
+MATCH_TYPES = (
+    "typecode",
+    "registration",
+    "icao24",
+    "callsign_prefix",
+    "operator_contains",
+    "flagged_military_or_pia_or_ladd",
+)
 
 
 @dataclass
@@ -13,6 +20,11 @@ class AircraftInfo:
     registration: str | None = None
     typecode: str | None = None
     operator: str | None = None
+    # Source-reported flags (see app/state_vector.py) - only adsb.lol sets
+    # these today. Independent of `pattern`, unlike every other match_type.
+    flagged_military: bool = False
+    flagged_pia: bool = False
+    flagged_ladd: bool = False
 
 
 def _patterns(pattern: str) -> list[str]:
@@ -20,6 +32,9 @@ def _patterns(pattern: str) -> list[str]:
 
 
 def matches(match_type: str, pattern: str, aircraft: AircraftInfo) -> bool:
+    if match_type == "flagged_military_or_pia_or_ladd":
+        return aircraft.flagged_military or aircraft.flagged_pia or aircraft.flagged_ladd
+
     patterns = _patterns(pattern)
     if not patterns:
         return False

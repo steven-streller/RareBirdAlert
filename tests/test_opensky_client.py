@@ -32,9 +32,9 @@ def test_fetch_states_parses_state_vectors(monkeypatch):
         ]
     }
     monkeypatch.setattr(opensky._session, "get", lambda *a, **k: FakeResponse(sample))
-    monkeypatch.setattr(opensky, "_get_access_token", lambda: None)
+    monkeypatch.setattr(opensky, "_get_access_token", lambda client_id, client_secret: None)
 
-    states = opensky.fetch_states(50.0, 8.0, 15.0)
+    states = opensky.fetch_states({}, 50.0, 8.0, 15.0)
 
     assert len(states) == 2
     assert states[0].icao24 == "3c6444"
@@ -46,16 +46,16 @@ def test_fetch_states_parses_state_vectors(monkeypatch):
 def test_fetch_states_skips_rows_without_icao24(monkeypatch):
     sample = {"states": [["", "DLH123", "Germany", 0, 0, 8.5, 50.1, 500, False, 200, 90, 0, None, 500, None, False, 0]]}
     monkeypatch.setattr(opensky._session, "get", lambda *a, **k: FakeResponse(sample))
-    monkeypatch.setattr(opensky, "_get_access_token", lambda: None)
+    monkeypatch.setattr(opensky, "_get_access_token", lambda client_id, client_secret: None)
 
-    assert opensky.fetch_states(50.0, 8.0, 15.0) == []
+    assert opensky.fetch_states({}, 50.0, 8.0, 15.0) == []
 
 
 def test_fetch_states_returns_empty_list_on_rate_limit(monkeypatch):
     monkeypatch.setattr(opensky._session, "get", lambda *a, **k: FakeResponse(status_code=429))
-    monkeypatch.setattr(opensky, "_get_access_token", lambda: None)
+    monkeypatch.setattr(opensky, "_get_access_token", lambda client_id, client_secret: None)
 
-    assert opensky.fetch_states(50.0, 8.0, 15.0) == []
+    assert opensky.fetch_states({}, 50.0, 8.0, 15.0) == []
 
 
 def test_fetch_states_returns_empty_list_on_request_exception(monkeypatch):
@@ -63,9 +63,9 @@ def test_fetch_states_returns_empty_list_on_request_exception(monkeypatch):
         raise requests.ConnectionError("boom")
 
     monkeypatch.setattr(opensky._session, "get", raise_exc)
-    monkeypatch.setattr(opensky, "_get_access_token", lambda: None)
+    monkeypatch.setattr(opensky, "_get_access_token", lambda client_id, client_secret: None)
 
-    assert opensky.fetch_states(50.0, 8.0, 15.0) == []
+    assert opensky.fetch_states({}, 50.0, 8.0, 15.0) == []
 
 
 def test_fetch_states_sends_bearer_token_when_available(monkeypatch):
@@ -76,14 +76,54 @@ def test_fetch_states_sends_bearer_token_when_available(monkeypatch):
         return FakeResponse({"states": []})
 
     monkeypatch.setattr(opensky._session, "get", fake_get)
-    monkeypatch.setattr(opensky, "_get_access_token", lambda: "fake-token")
+    monkeypatch.setattr(opensky, "_get_access_token", lambda client_id, client_secret: "fake-token")
 
-    opensky.fetch_states(50.0, 8.0, 15.0)
+    opensky.fetch_states({}, 50.0, 8.0, 15.0)
 
     assert captured["headers"]["Authorization"] == "Bearer fake-token"
 
 
-def test_get_access_token_returns_none_without_credentials(monkeypatch):
-    monkeypatch.delenv("OPENSKY_CLIENT_ID", raising=False)
-    monkeypatch.delenv("OPENSKY_CLIENT_SECRET", raising=False)
-    assert opensky._get_access_token() is None
+def test_fetch_states_passes_cfg_credentials_to_token_lookup(monkeypatch):
+    captured = {}
+
+    def fake_get_token(client_id, client_secret):
+        captured["client_id"] = client_id
+        captured["client_secret"] = client_secret
+        return None
+
+    monkeypatch.setattr(opensky._session, "get", lambda *a, **k: FakeResponse({"states": []}))
+    monkeypatch.setattr(opensky, "_get_access_token", fake_get_token)
+
+    opensky.fetch_states(
+        {"opensky_client_id": "id-from-settings", "opensky_client_secret": "secret-from-settings"},
+        50.0,
+        8.0,
+        15.0,
+    )
+
+    assert captured == {"client_id": "id-from-settings", "client_secret": "secret-from-settings"}
+
+
+def test_get_access_token_returns_none_without_credentials():
+    assert opensky._get_access_token("", "") is None
+
+
+def test_get_access_token_caches_per_credential_pair(monkeypatch):
+    calls = []
+
+    def fake_post(url, data=None, timeout=None):
+        calls.append(data["client_id"])
+        return FakeResponse({"access_token": f"token-for-{data['client_id']}", "expires_in": 1800})
+
+    monkeypatch.setattr(opensky._session, "post", fake_post)
+    monkeypatch.setattr(opensky, "_token_cache", {"key": None, "access_token": "", "expires_at": 0.0})
+
+    token_a = opensky._get_access_token("client-a", "secret-a")
+    token_a_cached = opensky._get_access_token("client-a", "secret-a")
+    token_b = opensky._get_access_token("client-b", "secret-b")
+
+    assert token_a == "token-for-client-a"
+    assert token_a_cached == "token-for-client-a"
+    assert token_b == "token-for-client-b"
+    # only two real requests - the second call for client-a was served from cache
+    assert calls == ["client-a", "client-b"]
