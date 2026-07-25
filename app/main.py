@@ -316,6 +316,87 @@ def delete_airport(watch_id: int, current_user: User = Depends(require_user)):
     return RedirectResponse(url="/airports", status_code=303)
 
 
+# --- Map ------------------------------------------------------------------------
+
+
+@app.get("/map")
+def map_page(request: Request, current_user: User = Depends(require_user)):
+    with Session(engine) as session:
+        watch_rows = session.exec(select(AirportWatch).where(AirportWatch.user_id == current_user.id)).all()
+        airport_ids = [w.airport_id for w in watch_rows]
+        airports = (
+            {a.id: a for a in session.exec(select(Airport).where(Airport.id.in_(airport_ids)))}
+            if airport_ids
+            else {}
+        )
+        watches = [
+            {
+                "icao": airports[w.airport_id].icao,
+                "name": airports[w.airport_id].name,
+                "lat": airports[w.airport_id].lat,
+                "lon": airports[w.airport_id].lon,
+                "radius_km": w.radius_km,
+            }
+            for w in watch_rows
+            if w.airport_id in airports
+        ]
+
+    return templates.TemplateResponse(
+        request,
+        "map.html",
+        {
+            "active": "map",
+            "current_user": current_user,
+            "watches": watches,
+        },
+    )
+
+
+@app.get("/map/live")
+def map_live_aircraft(current_user: User = Depends(require_user)):
+    """Fetches aircraft near the current user's watched airports live, on
+    demand - not from the scheduler's cadence - so a click on the map page
+    directly demonstrates whether the enabled data sources are returning
+    anything for that spot right now."""
+    with Session(engine) as session:
+        watches = session.exec(select(AirportWatch).where(AirportWatch.user_id == current_user.id)).all()
+        if not watches:
+            return {"aircraft": []}
+
+        airport_ids = list({w.airport_id for w in watches})
+        airports = {a.id: a for a in session.exec(select(Airport).where(Airport.id.in_(airport_ids)))}
+
+        max_radius: dict[int, float] = {}
+        for w in watches:
+            max_radius[w.airport_id] = max(max_radius.get(w.airport_id, 0.0), w.radius_km)
+
+        aircraft = []
+        for airport_id, radius_km in max_radius.items():
+            airport = airports.get(airport_id)
+            if not airport:
+                continue
+            for state in flight_sources.fetch_merged_states(session, airport.lat, airport.lon, radius_km):
+                if state.lat is None or state.lon is None:
+                    continue
+                aircraft.append(
+                    {
+                        "icao24": state.icao24,
+                        "callsign": state.callsign,
+                        "lat": state.lat,
+                        "lon": state.lon,
+                        "on_ground": state.on_ground,
+                        "typecode": state.typecode,
+                        "registration": state.registration,
+                        "flagged_military": state.flagged_military,
+                        "flagged_pia": state.flagged_pia,
+                        "flagged_ladd": state.flagged_ladd,
+                        "airport_icao": airport.icao,
+                    }
+                )
+
+    return {"aircraft": aircraft}
+
+
 # --- Watchlist ------------------------------------------------------------------
 
 

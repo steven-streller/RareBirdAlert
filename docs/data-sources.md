@@ -17,6 +17,11 @@ gilt es bei **mindestens einer** Quelle als "am Boden", zählt das als
 Landung, selbst wenn die andere Quelle es (noch) als "in der Luft" meldet.
 Mehr Quellen bedeuten also bessere Abdeckung, nicht mehr Fehlalarme.
 
+**Prüfen, ob eine Quelle tatsächlich Daten liefert:** die [Karte](index.md#features)
+fragt beim Öffnen (und auf Knopfdruck erneut) live ab, was die aktivierten
+Quellen gerade um deine beobachteten Flughäfen herum melden, und plottet es
+direkt auf der Karte - unabhängig vom Poll-Zyklus des Schedulers.
+
 ## OpenSky Network
 
 Gemeinnützige, community-getragene ADS-B-Aggregation. Kein API-Key ist
