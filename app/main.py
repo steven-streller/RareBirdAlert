@@ -12,6 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app import flight_sources
 from app.auth import get_current_user, login_user, logout_user, require_admin, require_user
+from app.csrf import get_or_create_csrf_token, verify_csrf
 from app.db import (
     engine,
     get_effective_setting,
@@ -65,6 +66,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["app_version"] = __version__
+templates.env.globals["csrf_token"] = get_or_create_csrf_token
 
 REGISTRATION_ENABLED = os.environ.get("REGISTRATION_ENABLED", "true").lower() != "false"
 
@@ -108,6 +110,7 @@ async def register(request: Request):
         return RedirectResponse(url="/register", status_code=303)
 
     form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
     email = str(form.get("email", "")).strip().lower()
     password = str(form.get("password", ""))
     password_confirm = str(form.get("password_confirm", ""))
@@ -146,6 +149,7 @@ def login_page(request: Request, error: str = ""):
 @app.post("/login")
 async def login(request: Request):
     form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
     email = str(form.get("email", "")).strip().lower()
     password = str(form.get("password", ""))
 
@@ -160,7 +164,9 @@ async def login(request: Request):
 
 
 @app.post("/logout")
-def logout(request: Request):
+async def logout(request: Request):
+    form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
     logout_user(request)
     return RedirectResponse(url="/login", status_code=303)
 
@@ -273,6 +279,7 @@ def airports_search(request: Request, q: str = "", current_user: User = Depends(
 @app.post("/airports")
 async def add_airport(request: Request, current_user: User = Depends(require_user)):
     form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
     icao = str(form.get("icao", "")).strip().upper()
     try:
         radius_km = max(1.0, min(200.0, float(form.get("radius_km") or 15)))
@@ -307,7 +314,9 @@ async def add_airport(request: Request, current_user: User = Depends(require_use
 
 
 @app.post("/airports/{watch_id}/delete")
-def delete_airport(watch_id: int, current_user: User = Depends(require_user)):
+async def delete_airport(watch_id: int, request: Request, current_user: User = Depends(require_user)):
+    form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
     with Session(engine) as session:
         watch = session.get(AirportWatch, watch_id)
         if watch and watch.user_id == current_user.id:
@@ -429,7 +438,9 @@ def watchlist_page(request: Request, saved: str = "", current_user: User = Depen
 
 
 @app.post("/watchlist/category/{key}/toggle")
-def toggle_category(key: str, current_user: User = Depends(require_user)):
+async def toggle_category(key: str, request: Request, current_user: User = Depends(require_user)):
+    form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
     with Session(engine) as session:
         category = session.exec(select(AircraftCategory).where(AircraftCategory.key == key)).first()
         if category:
@@ -443,6 +454,7 @@ def toggle_category(key: str, current_user: User = Depends(require_user)):
 @app.post("/watchlist")
 async def add_watchlist_entry(request: Request, current_user: User = Depends(require_user)):
     form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
     label = str(form.get("label", "")).strip()
     match_type = str(form.get("match_type", "")).strip()
     pattern = str(form.get("pattern", "")).strip()
@@ -458,7 +470,9 @@ async def add_watchlist_entry(request: Request, current_user: User = Depends(req
 
 
 @app.post("/watchlist/{entry_id}/delete")
-def delete_watchlist_entry(entry_id: int, current_user: User = Depends(require_user)):
+async def delete_watchlist_entry(entry_id: int, request: Request, current_user: User = Depends(require_user)):
+    form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
     with Session(engine) as session:
         entry = session.get(WatchlistEntry, entry_id)
         if entry and entry.user_id == current_user.id:
@@ -527,6 +541,7 @@ def settings_page(
 @app.post("/settings")
 async def save_settings(request: Request, current_user: User = Depends(require_user)):
     form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
     section = form.get("_section", "")
 
     if section in CHANNELS:
@@ -548,7 +563,9 @@ async def save_settings(request: Request, current_user: User = Depends(require_u
 
 
 @app.post("/settings/test/{channel}")
-def test_notification(channel: str, current_user: User = Depends(require_user)):
+async def test_notification(channel: str, request: Request, current_user: User = Depends(require_user)):
+    form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
     if channel not in CHANNELS:
         return RedirectResponse(url="/settings?tested=fail", status_code=303)
     with Session(engine) as session:
@@ -618,6 +635,7 @@ def admin_page(
 @app.post("/admin")
 async def save_admin_settings(request: Request, current_user: User = Depends(require_admin)):
     form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
     section = form.get("_section", "general")
 
     with Session(engine) as session:
@@ -638,6 +656,8 @@ async def save_admin_settings(request: Request, current_user: User = Depends(req
 
 
 @app.post("/poll-now")
-def poll_now(current_user: User = Depends(require_admin)):
+async def poll_now(request: Request, current_user: User = Depends(require_admin)):
+    form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
     poll_job()
     return RedirectResponse(url="/admin?polled=1", status_code=303)

@@ -12,6 +12,7 @@
 <section class="settings-section" id="general">
     <h2>Allgemein</h2>
     <form class="settings-form" method="post" action="/admin">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
         <input type="hidden" name="_section" value="general" />
         <label>
             Poll-Intervall (Sekunden)
@@ -36,6 +37,7 @@
         </summary>
         <div class="channel-body">
             <form class="settings-form" method="post" action="/admin">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
                 <input type="hidden" name="_section" value="source_{{ key }}" />
                 <label class="checkbox-row">
                     <input type="checkbox" name="source_enabled" {{ 'checked' if is_enabled else '' }} />
@@ -70,6 +72,7 @@
 <section class="settings-section">
     <h2>Manuelle Aktualisierung</h2>
     <form method="post" action="/poll-now">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
         <button class="secondary" type="submit">Jetzt aktualisieren</button>
     </form>
 </section>

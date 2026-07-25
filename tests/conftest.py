@@ -1,8 +1,19 @@
+import re
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import create_engine
 
 from app.db import init_db
+
+# Captured once, before any monkeypatching, so tests that need to submit a
+# request without (or with a deliberately wrong) csrf_token - i.e. the CSRF
+# tests themselves - can bypass the autouse auto-injection below via raw_post.
+_ORIGINAL_TESTCLIENT_POST = TestClient.post
+
+
+def raw_post(client: TestClient, url: str, **kwargs):
+    return _ORIGINAL_TESTCLIENT_POST(client, url, **kwargs)
 
 
 @pytest.fixture
@@ -63,6 +74,36 @@ def _no_real_adsbdb_calls(monkeypatch):
             return None
 
     monkeypatch.setattr("app.scheduler.adsbdb", _StubAdsbdb)
+
+
+@pytest.fixture(autouse=True)
+def _auto_csrf_token(monkeypatch):
+    """Every POST route now requires a matching csrf_token in the submitted
+    form (see app/csrf.py). Rather than editing every one of the dozens of
+    existing `client.post(..., data={...})` call sites across the test suite
+    - CSRF verification is a cross-cutting concern those tests aren't about -
+    transparently fetch and inject a valid token into any POST that doesn't
+    already carry one. Patches the TestClient *class*, not just the `client`
+    fixture's instance, since several test files construct their own
+    `TestClient(app)` (e.g. a second user "bob") that never goes through
+    that fixture.
+
+    Tests that need to exercise a missing/invalid token (tests/test_csrf.py)
+    use `raw_post` above instead, which bypasses this entirely.
+    """
+
+    def post_with_csrf_token(self, url, *args, **kwargs):
+        data = kwargs.get("data")
+        if data is None or "csrf_token" not in data:
+            data = dict(data) if data else {}
+            token_page = self.get("/login")
+            match = re.search(r'name="csrf_token" value="([^"]+)"', token_page.text)
+            assert match, "no csrf_token found on /login"
+            data.setdefault("csrf_token", match.group(1))
+            kwargs["data"] = data
+        return _ORIGINAL_TESTCLIENT_POST(self, url, *args, **kwargs)
+
+    monkeypatch.setattr(TestClient, "post", post_with_csrf_token)
 
 
 def register(client: TestClient, email: str, password: str = "testpassword1"):

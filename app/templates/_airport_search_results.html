@@ -6,6 +6,7 @@
             <div class="item-sub">{{ e.municipality }}{% if e.municipality and e.country %}, {% endif %}{{ e.country }}</div>
         </div>
         <form method="post" action="/airports">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
             <input type="hidden" name="icao" value="{{ e.icao }}" />
             <input type="number" name="radius_km" value="15" min="1" max="200" style="width: 4.5rem" title="Radius in km" />
             <button class="secondary" type="submit">Hinzufügen</button>

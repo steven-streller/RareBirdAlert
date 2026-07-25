@@ -22,6 +22,7 @@
         {% endif %}
         <span class="nav-user">{{ current_user.email }}</span>
         <form method="post" action="/logout" class="nav-logout">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
             <button type="submit" class="link-button">Abmelden</button>
         </form>
         {% endif %}

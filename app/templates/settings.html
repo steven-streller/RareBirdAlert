@@ -15,6 +15,7 @@
         </summary>
         <div class="channel-body">
             <form class="settings-form" method="post" action="/settings">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
                 <input type="hidden" name="_section" value="{{ key }}" />
                 <label class="checkbox-row">
                     <input type="checkbox" name="{{ key }}_enabled" {{ 'checked' if is_enabled else '' }} />
@@ -42,6 +43,7 @@
                 <button class="primary" type="submit">Speichern</button>
             </form>
             <form method="post" action="/settings/test/{{ key }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
                 <button class="secondary" type="submit">Testen</button>
             </form>
         </div>
