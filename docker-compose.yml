@@ -1,0 +1,15 @@
+services:
+  rarebirdalert:
+    build: .
+    container_name: rarebirdalert
+    restart: unless-stopped
+    ports:
+      - "8080:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TZ=Europe/Berlin
+      - SESSION_SECRET_KEY=${SESSION_SECRET_KEY:-}
+      - REGISTRATION_ENABLED=${REGISTRATION_ENABLED:-true}
+      - OPENSKY_CLIENT_ID=${OPENSKY_CLIENT_ID:-}
+      - OPENSKY_CLIENT_SECRET=${OPENSKY_CLIENT_SECRET:-}

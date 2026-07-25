@@ -1,0 +1,82 @@
+# Mitwirken
+
+## Ablauf
+
+`main` ist geschützt: jede Änderung läuft über einen Branch + Pull Request,
+direkte Pushes werden abgelehnt (auch für Repo-Admins). Zum Mergen müssen
+zwei Status-Checks grün sein:
+
+- `lint-and-test` – `ruff check .` + `pytest`
+- `docker-build` – das Image muss bauen
+
+Es ist kein Review-Approval erforderlich, damit auch Solo-Änderungen ohne
+zweite Person gemergt werden können – die CI-Checks sind das eigentliche Gate.
+
+Zusätzlich läuft bei jedem Push/PR ein Trivy-Scan des gebauten Images
+(innerhalb von `docker-build`) sowie CodeQL auf dem Python-Code (eigener
+`codeql`-Workflow, zusätzlich wöchentlich geplant) – beide sind nicht
+merge-blockierend, Funde landen im "Security"-Reiter des Repos.
+
+```bash
+git checkout -b feature/mein-feature
+# Änderungen ...
+git push -u origin feature/mein-feature
+gh pr create
+```
+
+## Lokal einrichten
+
+Siehe [Entwicklung](setup/development.md) für venv, Tests, Lint und
+Projektstruktur.
+
+```bash
+pytest              # muss durchlaufen
+ruff check .         # muss sauber sein
+```
+
+Ruff-Regeln, die absichtlich ignoriert werden (siehe `pyproject.toml`):
+`UP007`/`UP045` (Stil-Präferenz `Optional[X]` statt `X | None` für
+SQLModel-Felder) und `B008` (der übliche FastAPI-`Depends(...)`-Default, den
+Ruffs Bugbear-Regel fälschlich als Problem meldet).
+
+## Tests
+
+Neue Routen/Logik sollten nach Möglichkeit mit abgedeckt werden –
+`tests/conftest.py` stellt dafür zwei Fixtures bereit:
+
+- `test_engine`: frische SQLite-Datei pro Test, in alle Module verdrahtet, die
+  `engine` importieren (inkl. `app.aircraft_db.DB_PATH`, das den Pfad separat
+  importiert)
+- `client`: ein `TestClient` über die echte App, **ohne** das Startup-Event
+  auszulösen (kein echter Scheduler, kein Netzwerkzugriff im Test)
+
+```python
+def test_my_new_route(client):
+    register(client, "alice@example.com")
+    resp = client.get("/my-route")
+    assert resp.status_code == 200
+```
+
+Tests, die OpenSky- oder Netzwerk-Aufrufe berühren, mocken diese immer
+(siehe `tests/test_opensky_client.py`) – der Testlauf darf nie vom Internet
+abhängen.
+
+## Abhängigkeiten
+
+Dependabot hält `requirements*.txt` und GitHub Actions aktuell und öffnet
+wöchentlich PRs. Minor/Patch-Updates mergen automatisch, sobald die Checks
+grün sind (`.github/workflows/dependabot-automerge.yml`); Major-Updates
+bleiben zur manuellen Prüfung offen.
+
+## Neuen Benachrichtigungskanal hinzufügen
+
+Siehe [Architektur](architecture.md#benachrichtigungskanale-appnotificationspy) –
+ein Eintrag im `CHANNELS`-Dict in `app/notifications.py` reicht, die
+Einstellungen-Seite rendert die Formularfelder automatisch daraus.
+
+## Eine eingebaute Watchlist-Kategorie ergänzen oder korrigieren
+
+Die kuratierte Startliste in `CATEGORIES` (`app/db.py`) erhebt bewusst keinen
+Anspruch auf Vollständigkeit oder hundertprozentige Genauigkeit – Korrekturen
+und neue Kategorien (per PR) sind willkommen, siehe [Watchlist](watchlist.md)
+für das Muster-Format.

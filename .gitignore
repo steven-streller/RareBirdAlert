@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/aircraft-db.csv
+.env
+.pytest_cache/
+.ruff_cache/
+.coverage
+*.egg-info/
+site/

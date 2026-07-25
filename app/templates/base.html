@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}RareBirdAlert{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛩️</text></svg>" />
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="/static/htmx.min.js"></script>
+</head>
+<body>
+    <nav>
+        <span class="brand">🛩️ RareBirdAlert</span>
+        {% if current_user %}
+        <a href="/" class="{{ 'active' if active == 'dashboard' else '' }}">Dashboard</a>
+        <a href="/airports" class="{{ 'active' if active == 'airports' else '' }}">Flughäfen</a>
+        <a href="/watchlist" class="{{ 'active' if active == 'watchlist' else '' }}">Watchlist</a>
+        <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Einstellungen</a>
+        <span class="nav-user">{{ current_user.email }}</span>
+        <form method="post" action="/logout" class="nav-logout">
+            <button type="submit" class="link-button">Abmelden</button>
+        </form>
+        {% endif %}
+    </nav>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <footer>
+        <span>Made with ❤️ in Germany 🇩🇪</span>
+        <a href="https://github.com/steven-streller/RareBirdAlert" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://steven-streller.github.io/RareBirdAlert/" target="_blank" rel="noopener">Dokumentation</a>
+        <a href="https://github.com/steven-streller/RareBirdAlert/releases/tag/v{{ app_version }}" target="_blank" rel="noopener">v{{ app_version }}</a>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Flughäfen - RareBirdAlert{% endblock %}
+{% block content %}
+<h1>Flughäfen verwalten</h1>
+
+{% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
+{% if error == "notfound" %}<div class="error">Unbekannter ICAO-Code. Bitte über die Suche einen Flughafen finden.</div>{% endif %}
+
+<input
+    class="search-box"
+    type="search"
+    name="q"
+    placeholder="Flughafen suchen (ICAO-Code, IATA-Code oder Name)..."
+    hx-get="/airports/search"
+    hx-trigger="keyup changed delay:300ms"
+    hx-target="#search-results"
+    hx-swap="innerHTML"
+/>
+<div id="search-results" class="search-results"></div>
+
+<h2>Deine beobachteten Flughäfen</h2>
+{% if watches %}
+    {% for row in watches %}
+    <div class="item-row">
+        <div class="item-main">
+            <div class="item-title">
+                <span class="airport-tag">{{ row.airport.icao }}</span>
+                {{ row.airport.name }}
+            </div>
+            <div class="item-sub">Radius: {{ row.watch.radius_km|int }} km</div>
+        </div>
+        <form method="post" action="/airports/{{ row.watch.id }}/delete">
+            <button class="link-button" type="submit">Entfernen</button>
+        </form>
+    </div>
+    {% endfor %}
+{% else %}
+    <p class="empty">Noch keine Flughäfen ausgewählt.</p>
+{% endif %}
+{% endblock %}
