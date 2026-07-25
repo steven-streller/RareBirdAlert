@@ -479,10 +479,15 @@ CHANNEL_TEXT_KEYS = [key for channel in CHANNELS.values() for key in channel["ke
 def _safe_channel_anchor(value: str) -> str:
     """Map arbitrary input onto a known-safe literal for use in a redirect URL/anchor.
 
-    Never returns the input itself, so the redirect target can't carry
-    attacker-controlled data (CWE-601).
+    Returns one of the CHANNELS keys, never the input itself - even on a
+    match, the returned string comes from the fixed CHANNELS collection, not
+    from `value` - so static analysis (and a would-be attacker) can't treat
+    the redirect target as carrying attacker-controlled data (CWE-601).
     """
-    return value if value in CHANNELS else "general"
+    for allowed in CHANNELS:
+        if allowed == value:
+            return allowed
+    return "general"
 
 
 @app.get("/settings")
