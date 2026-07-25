@@ -127,3 +127,13 @@ def test_get_access_token_caches_per_credential_pair(monkeypatch):
     assert token_b == "token-for-client-b"
     # only two real requests - the second call for client-a was served from cache
     assert calls == ["client-a", "client-b"]
+
+
+def test_get_access_token_returns_none_when_token_request_fails(monkeypatch):
+    def raise_exc(*a, **k):
+        raise requests.ConnectionError("boom")
+
+    monkeypatch.setattr(opensky._session, "post", raise_exc)
+    monkeypatch.setattr(opensky, "_token_cache", {"key": None, "access_token": "", "expires_at": 0.0})
+
+    assert opensky._get_access_token("client-x", "secret-x") is None

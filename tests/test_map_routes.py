@@ -1,4 +1,7 @@
+from sqlmodel import Session, select
+
 from app import flight_sources
+from app.models import AirportWatch, User
 from app.state_vector import StateVector
 from tests.conftest import register
 
@@ -88,3 +91,22 @@ def test_map_live_requires_login(client):
     resp = client.get("/map/live", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"
+
+
+def test_map_live_skips_watch_referencing_a_missing_airport(client, test_engine, monkeypatch):
+    register(client, "alice@example.com")
+
+    called = []
+    monkeypatch.setattr(flight_sources, "fetch_merged_states", lambda *a, **k: called.append(1) or [])
+
+    with Session(test_engine) as session:
+        user = session.exec(select(User).where(User.email == "alice@example.com")).first()
+        # No matching Airport row exists for this id - a defensive edge case
+        # (dangling reference), not something the normal add-airport flow can produce.
+        session.add(AirportWatch(user_id=user.id, airport_id=999999, radius_km=15))
+        session.commit()
+
+    resp = client.get("/map/live")
+
+    assert resp.json() == {"aircraft": []}
+    assert called == []

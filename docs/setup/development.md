@@ -10,12 +10,13 @@ pip install -r requirements-dev.txt
 ## Tests & Lint
 
 ```bash
-pytest              # siehe tests/ für die aktuelle Anzahl
-ruff check .         # Lint
+pytest --cov=app --cov-report=term-missing   # Tests + Coverage-Report
+ruff check .                                  # Lint
 ```
 
 CI (`.github/workflows/ci.yml`) führt beides plus einen Docker-Build-Check bei
-jedem Push/PR aus.
+jedem Push/PR aus - der Pytest-Lauf schlägt fehl, wenn die Coverage unter 80 %
+fällt, siehe [Mitwirken](../contributing.md#coverage).
 
 ## Lokal starten
 

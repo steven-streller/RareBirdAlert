@@ -41,8 +41,8 @@ jobs:
           sarif_file: ruff-results.sarif
           category: ruff
 
-      - name: Pytest
-        run: pytest -v
+      - name: Pytest with coverage
+        run: pytest -v --cov=app --cov-report=term-missing
 
   docker-build:
     runs-on: ubuntu-24.04

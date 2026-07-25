@@ -148,3 +148,15 @@ def test_poll_now_triggers_poll_job(client, monkeypatch):
 
     assert resp.headers["location"] == "/admin?polled=1"
     assert calls == [1]
+
+
+def test_admin_page_shows_flash_after_manual_poll(client):
+    register(client, "alice@example.com")
+    page = client.get("/admin?polled=1")
+    assert "Poll-Zyklus manuell angestoßen." in page.text
+
+
+def test_save_admin_settings_falls_back_to_general_anchor_for_unknown_section(client):
+    register(client, "alice@example.com")
+    resp = client.post("/admin", data={"_section": "not-a-real-section"}, follow_redirects=False)
+    assert resp.headers["location"] == "/admin?saved=general#general"

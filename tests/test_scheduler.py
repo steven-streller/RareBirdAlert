@@ -230,3 +230,165 @@ def test_process_state_matches_adsb_flagged_category(test_engine, monkeypatch):
         matches_ = session.exec(select(SightingMatch)).all()
         assert len(matches_) == 1
         assert matches_[0].category_key == "adsb_flagged"
+
+
+def test_process_state_matches_custom_watchlist_entry_directly(test_engine, monkeypatch):
+    monkeypatch.setattr(scheduler.aircraft_db, "lookup", lambda icao24: None)
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        user = User(email="collector@example.com", password_hash="x")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        entry = WatchlistEntry(user_id=user.id, label="DC-3 Fan", match_type="typecode", pattern="DC3")
+        session.add(entry)
+        session.commit()
+        session.refresh(entry)
+
+        state = StateVector(icao24="abc123", callsign="OLD1", on_ground=True, typecode="DC3")
+        # categories=[] - only the watchlist_entries branch (not the category
+        # loop) can produce this match.
+        scheduler._process_state(session, airport, state, [], [entry])
+        session.commit()
+
+        matches_ = session.exec(select(SightingMatch)).all()
+        assert len(matches_) == 1
+        assert matches_[0].watchlist_entry_id == entry.id
+        assert matches_[0].category_key is None
+
+
+def test_poll_job_returns_early_without_any_watches(test_engine, monkeypatch):
+    called = []
+    monkeypatch.setattr(scheduler.flight_sources, "fetch_merged_states", lambda *a, **k: called.append(1) or [])
+
+    scheduler.poll_job()
+
+    assert called == []
+
+
+def test_poll_job_creates_sighting_for_watched_airport(test_engine, monkeypatch):
+    monkeypatch.setattr(scheduler.aircraft_db, "lookup", lambda icao24: None)
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        user = User(email="poll-test@example.com", password_hash="x")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        session.add(AirportWatch(user_id=user.id, airport_id=airport.id, radius_km=20))
+        session.commit()
+
+    captured_calls = []
+    state = StateVector(icao24="abc123", callsign="GAF123", on_ground=True, typecode="EUFI")
+
+    def fake_fetch(session, lat, lon, radius_km):
+        captured_calls.append((round(lat, 2), round(lon, 2), radius_km))
+        return [state]
+
+    monkeypatch.setattr(scheduler.flight_sources, "fetch_merged_states", fake_fetch)
+
+    scheduler.poll_job()
+
+    assert captured_calls == [(50.0, 8.5, 20.0)]
+    with Session(test_engine) as session:
+        sightings = session.exec(select(Sighting)).all()
+        assert len(sightings) == 1
+        assert sightings[0].typecode == "EUFI"
+
+
+def test_poll_job_cleans_up_stale_track_state(test_engine, monkeypatch):
+    from datetime import datetime, timedelta
+
+    monkeypatch.setattr(scheduler.flight_sources, "fetch_merged_states", lambda *a, **k: [])
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        user = User(email="stale-test@example.com", password_hash="x")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        session.add(AirportWatch(user_id=user.id, airport_id=airport.id, radius_km=15))
+        stale_time = datetime.utcnow() - timedelta(seconds=scheduler.STALE_TRACK_SECONDS + 60)
+        session.add(
+            AircraftTrackState(icao24="stale01", airport_id=airport.id, on_ground=True, last_seen_at=stale_time)
+        )
+        session.commit()
+
+    scheduler.poll_job()
+
+    with Session(test_engine) as session:
+        assert session.exec(select(AircraftTrackState)).all() == []
+
+
+def test_notify_check_job_returns_early_without_sightings(test_engine):
+    # must not raise even though there's nothing to do
+    scheduler.notify_check_job()
+
+
+def test_notify_check_job_skips_user_without_enabled_channels(test_engine):
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        user = User(email="no-channels@example.com", password_hash="x")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        session.add(AirportWatch(user_id=user.id, airport_id=airport.id, radius_km=15))
+        sighting = Sighting(airport_id=airport.id, icao24="abc123", callsign="GAF123", typecode="EUFI")
+        session.add(sighting)
+        session.commit()
+        session.refresh(sighting)
+        session.add(SightingMatch(sighting_id=sighting.id, category_key="eurofighter_typhoon", label="Eurofighter"))
+        session.commit()
+
+    scheduler.notify_check_job()  # no channels enabled anywhere - must not raise or notify
+
+    with Session(test_engine) as session:
+        assert session.exec(select(NotificationLog)).all() == []
+
+
+def test_notify_check_job_skips_user_without_watched_airports(test_engine, monkeypatch):
+    monkeypatch.setattr(
+        scheduler, "notify_all", lambda session, user_id, title, message, url=None: {"webhook": True}
+    )
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        user = User(email="no-watches@example.com", password_hash="x")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        set_user_setting(session, user.id, "webhook_enabled", "true")  # channel enabled, but no AirportWatch
+
+        sighting = Sighting(airport_id=airport.id, icao24="abc123", callsign="GAF123", typecode="EUFI")
+        session.add(sighting)
+        session.commit()
+        session.refresh(sighting)
+        session.add(SightingMatch(sighting_id=sighting.id, category_key="eurofighter_typhoon", label="Eurofighter"))
+        session.commit()
+
+    scheduler.notify_check_job()
+
+    with Session(test_engine) as session:
+        assert session.exec(select(NotificationLog)).all() == []
+
+
+def test_reschedule_poll_job_changes_the_interval():
+    from apscheduler.triggers.interval import IntervalTrigger
+
+    scheduler.scheduler.add_job(lambda: None, trigger=IntervalTrigger(seconds=60), id="poll_job")
+    try:
+        scheduler.reschedule_poll_job(120)
+        job = scheduler.scheduler.get_job("poll_job")
+        assert job.trigger.interval.total_seconds() == 120
+    finally:
+        scheduler.scheduler.remove_job("poll_job")
+
+
+def test_start_scheduler_registers_all_three_jobs(test_engine, monkeypatch):
+    monkeypatch.setattr(scheduler, "poll_job", lambda: None)
+    monkeypatch.setattr(scheduler, "notify_check_job", lambda: None)
+    monkeypatch.setattr(scheduler.aircraft_db, "refresh_aircraft_db", lambda: None)
+
+    try:
+        scheduler.start_scheduler()
+        job_ids = {job.id for job in scheduler.scheduler.get_jobs()}
+        assert job_ids == {"poll_job", "notify_check_job", "aircraft_db_refresh_job"}
+    finally:
+        scheduler.scheduler.shutdown(wait=False)
