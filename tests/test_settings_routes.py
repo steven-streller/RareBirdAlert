@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.main import CHANNELS, _safe_channel_anchor
 from tests.conftest import register
 
 
@@ -76,3 +77,23 @@ def test_save_settings_persists_channel_checkbox_field(client):
 
     page = client.get("/settings")
     assert 'name="email_use_tls" checked' in page.text
+
+
+def test_safe_channel_anchor_never_echoes_unknown_input():
+    # Regression test for a CodeQL "URL redirection from remote source"
+    # (CWE-601) finding: an earlier version returned `value` itself on a
+    # match instead of a literal from the fixed CHANNELS collection, which
+    # static analysis treats as attacker-controlled data reaching a redirect.
+    for known in CHANNELS:
+        assert _safe_channel_anchor(known) == known
+    assert _safe_channel_anchor("javascript:alert(1)") == "general"
+    assert _safe_channel_anchor("//evil.example.com") == "general"
+    assert _safe_channel_anchor("") == "general"
+
+
+def test_save_settings_redirect_never_reflects_an_unknown_section(client):
+    register(client, "alice@example.com")
+    resp = client.post(
+        "/settings", data={"_section": "//evil.example.com"}, follow_redirects=False
+    )
+    assert resp.headers["location"] == "/settings?saved=general#general"
