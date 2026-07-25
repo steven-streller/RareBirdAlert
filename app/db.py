@@ -175,6 +175,21 @@ def _ensure_sighting_route_columns() -> None:
         conn.commit()
 
 
+def _ensure_sighting_photo_columns() -> None:
+    """Same rationale as _ensure_sighting_route_columns - the photo_* columns
+    on Sighting (planespotters.net enrichment) were added after the initial
+    release, so existing databases need them backfilled by hand.
+    """
+    with engine.connect() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(sighting)").fetchall()}
+        if not columns:
+            return
+        for column in ("photo_thumbnail_url", "photo_large_url", "photo_link"):
+            if column not in columns:
+                conn.exec_driver_sql(f"ALTER TABLE sighting ADD COLUMN {column} TEXT")
+        conn.commit()
+
+
 def _ensure_admin_exists(session: Session) -> None:
     """Guarantees exactly one admin exists after every startup.
 
@@ -197,6 +212,7 @@ def init_db() -> None:
     SQLModel.metadata.create_all(engine)
     _ensure_user_is_admin_column()
     _ensure_sighting_route_columns()
+    _ensure_sighting_photo_columns()
     with Session(engine) as session:
         for category in CATEGORIES:
             existing = session.exec(
