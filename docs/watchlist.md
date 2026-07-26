@@ -13,9 +13,9 @@ hundertprozentige Trefferquote:
 | Kategorie | Kriterium | Hinweis |
 |---|---|---|
 | Militär | Callsign-Präfix (u. a. `GAF`, `RCH`, `RRR`, `ASCOT`, `NATO`, `CTM`, `IAM`, …) | Erkennt nicht jeden Militärflug – manche fliegen unter zivilem Callsign oder komplett ohne öffentlich sichtbares ADS-B. |
-| Eurofighter Typhoon | Flugzeugtyp `EUFI`/`EFA` | Unabhängig vom Callsign, direkt über den ICAO-Typcode. |
-| Spezial-Transporter | Flugzeugtyp `A3ST` (Beluga), `A124` (Antonov An-124), `C5`/`C5M` (C-5 Galaxy) | Für die Beluga XL siehe unten – der ICAO-Typcode allein reicht dafür nicht. |
-| Historische Klassiker | Flugzeugtyp `DC3`/`C47` (Douglas DC-3), `B17`, `B29` | Seltene Oldtimer, die noch flugfähig sind. |
+| Eurofighter Typhoon | Flugzeugtyp [`EUFI`](https://skybrary.aero/aircraft/eufi)/[`EFA`](https://skybrary.aero/aircraft/efa) | Unabhängig vom Callsign, direkt über den ICAO-Typcode. |
+| Spezial-Transporter | Flugzeugtyp [`A3ST`](https://skybrary.aero/aircraft/a3st) (Beluga), [`A124`](https://skybrary.aero/aircraft/a124) (Antonov An-124), [`C5`](https://skybrary.aero/aircraft/c5)/[`C5M`](https://skybrary.aero/aircraft/c5m) (C-5 Galaxy) | Für die Beluga XL siehe unten – der ICAO-Typcode allein reicht dafür nicht. |
+| Historische Klassiker | Flugzeugtyp [`DC3`](https://skybrary.aero/aircraft/dc3)/[`C47`](https://skybrary.aero/aircraft/c47) (Douglas DC-3), [`B17`](https://skybrary.aero/aircraft/b17), [`B29`](https://skybrary.aero/aircraft/b29) | Seltene Oldtimer, die noch flugfähig sind. |
 | Militär/Privat-ICAO (adsb.lol-Flag) | `dbFlags`-Bitmaske von adsb.lol (militärisch, PIA, LADD) | Zuverlässiger als die Callsign-Heuristik der `Militär`-Kategorie, da es aus der Flugzeug-Datenbank kommt statt aus einer Namens-Vermutung - aber nur, solange die Datenquelle **adsb.lol** aktiviert ist. Siehe [Datenquellen](data-sources.md). |
 
 Jede Kategorie lässt sich pro Account unter **Watchlist** an- und abschalten
@@ -29,7 +29,7 @@ kommagetrennte Muster:
 
 | Kriterium | Vergleich | Beispiel |
 |---|---|---|
-| Flugzeugtyp | exakter ICAO-Typcode | `A339` |
+| Flugzeugtyp | exakter ICAO-Typcode | [`A339`](https://skybrary.aero/aircraft/a339) |
 | Kennung | exakte Registration | `F-GXLG, F-GXLH` |
 | ICAO24-Hexcode | exakter Hex-Code des Transponders | `3c6444` |
 | Callsign-Präfix | Callsign beginnt mit | `GAF, RCH` |

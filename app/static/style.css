@@ -293,9 +293,9 @@ h2 { font-size: 1.1rem; color: var(--text-dim); margin-top: 2rem; }
     margin-bottom: 0.5rem;
 }
 
-.item-row .item-main { flex: 1; }
+.item-row .item-main { flex: 1; min-width: 0; }
 .item-row .item-title { font-weight: 600; }
-.item-row .item-sub { color: var(--text-dim); font-size: 0.85rem; }
+.item-row .item-sub { color: var(--text-dim); font-size: 0.85rem; overflow-wrap: break-word; }
 .item-row form { margin: 0; }
 
 /* Inactive categories/watchlist entries: muted so "on vs. off" is visible
