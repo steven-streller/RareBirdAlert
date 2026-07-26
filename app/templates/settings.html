@@ -26,6 +26,10 @@
             Zeitzone (IANA-Name)
             <input type="text" name="quiet_hours_timezone" value="{{ settings.quiet_hours_timezone }}" placeholder="Europe/Berlin" />
         </label>
+        <p class="item-sub">
+            Beginn/Ende gelten in dieser Zeitzone, nicht in UTC. Bei leerem
+            oder ungültigem Wert wird UTC verwendet.
+        </p>
         <button class="primary" type="submit">Speichern</button>
     </form>
     <p class="item-sub">
