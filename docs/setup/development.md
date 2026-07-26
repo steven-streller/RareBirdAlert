@@ -7,12 +7,17 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
 
+Alternativ übernimmt das mitgelieferte `Makefile` venv-Erstellung und
+Installation (`make install`) - `make help` listet alle Targets.
+
 ## Tests & Lint
 
 ```bash
 pytest --cov=app --cov-report=term-missing   # Tests + Coverage-Report
 ruff check .                                  # Lint
 ```
+
+Oder kurz: `make test` / `make lint` (nutzt automatisch `.venv`).
 
 CI (`.github/workflows/ci.yml`) führt beides plus einen Docker-Build-Check bei
 jedem Push/PR aus - der Pytest-Lauf schlägt fehl, wenn die Coverage unter 80 %
@@ -24,6 +29,8 @@ fällt, siehe [Mitwirken](../contributing.md#coverage).
 RAREBIRDALERT_DB_PATH=./data/rarebirdalert.db SESSION_SECRET_KEY=dev-only \
   uvicorn app.main:app --reload --port 8000
 ```
+
+Oder `make run` - dasselbe Kommando, aus dem Makefile.
 
 Die SQLite-Datenbank landet dann in `./data/rarebirdalert.db` (per
 `.gitignore` ausgeschlossen). `--reload` startet den Server bei
