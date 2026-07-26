@@ -15,9 +15,6 @@
     <div class="item-main">
         <div class="item-title">{{ category.label }}</div>
         {% if category.description %}<div class="item-sub">{{ category.description }}</div>{% endif %}
-        <div class="item-sub">
-            {{ match_type_labels.get(category.match_type, category.match_type) }}{% if category.pattern %}: {{ category.pattern }}{% endif %}
-        </div>
     </div>
     <form method="post" action="/watchlist/category/{{ category.key }}/toggle">
         <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
