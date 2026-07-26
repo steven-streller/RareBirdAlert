@@ -15,6 +15,15 @@
 
 <button class="secondary" id="load-aircraft-btn" type="button">Flugzeuge laden</button>
 <span id="map-status" class="item-sub"></span>
+
+<div class="map-filters">
+    <label><input type="radio" name="status-filter" value="all" checked /> Alle</label>
+    <label><input type="radio" name="status-filter" value="air" /> Nur in der Luft</label>
+    <label><input type="radio" name="status-filter" value="ground" /> Nur am Boden</label>
+    <label><input type="checkbox" id="filter-match" /> Nur besondere (Kategorie/Watchlist)</label>
+    <label><input type="checkbox" id="filter-flagged" /> Nur geflaggt (Militär/PIA/LADD)</label>
+</div>
+
 <div id="map" style="height: 65vh; margin-top: 1rem; border-radius: 8px;"></div>
 
 <link rel="stylesheet" href="/static/leaflet/leaflet.css" />
@@ -53,6 +62,68 @@
     }
 
     const aircraftLayer = L.layerGroup().addTo(map);
+    let lastAircraft = [];
+
+    function currentFilters() {
+        const statusEl = document.querySelector("input[name='status-filter']:checked");
+        return {
+            status: statusEl ? statusEl.value : "all",
+            matchOnly: document.getElementById("filter-match").checked,
+            flaggedOnly: document.getElementById("filter-flagged").checked
+        };
+    }
+
+    function passesFilter(ac, filters) {
+        if (filters.status === "air" && ac.on_ground) return false;
+        if (filters.status === "ground" && !ac.on_ground) return false;
+        if (filters.matchOnly && !ac.is_match) return false;
+        if (filters.flaggedOnly && !(ac.flagged_military || ac.flagged_pia || ac.flagged_ladd)) return false;
+        return true;
+    }
+
+    function renderAircraft() {
+        const filters = currentFilters();
+        aircraftLayer.clearLayers();
+        let shown = 0;
+        lastAircraft.forEach(function (ac) {
+            if (!passesFilter(ac, filters)) return;
+            shown++;
+            // Special aircraft (matches a category/watchlist entry) stand out
+            // in amber regardless of ground state, so they're findable at a
+            // glance among ordinary traffic - ground/air still applies to
+            // everything else.
+            const color = ac.is_match ? "#f5a623" : (ac.on_ground ? "#4caf50" : "#3aa0ff");
+            const marker = L.circleMarker([ac.lat, ac.lon], {
+                radius: ac.is_match ? 8 : 6,
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.8
+            });
+            const label = escapeHtml(ac.callsign || ac.icao24);
+            const flags = [];
+            if (ac.flagged_military) flags.push("Militär");
+            if (ac.flagged_pia) flags.push("PIA");
+            if (ac.flagged_ladd) flags.push("LADD");
+            const typeInfoLink = ac.typecode
+                ? "<br><a href=\"https://skybrary.aero/aircraft/" + encodeURIComponent(ac.typecode.toLowerCase()) +
+                  "\" target=\"_blank\" rel=\"noopener\">Info zum Typ ↗</a>"
+                : "";
+            const matchInfo = (ac.match_labels && ac.match_labels.length)
+                ? "<br><strong>Erkannt als: " + ac.match_labels.map(escapeHtml).join(", ") + "</strong>"
+                : "";
+            marker.bindPopup(
+                "<strong>" + label + "</strong><br>" +
+                escapeHtml(ac.typecode || "unbekannter Typ") +
+                (ac.registration ? " · " + escapeHtml(ac.registration) : "") + "<br>" +
+                (ac.on_ground ? "am Boden" : "in der Luft") +
+                (flags.length ? "<br>" + flags.join(", ") : "") +
+                matchInfo +
+                typeInfoLink
+            );
+            marker.addTo(aircraftLayer);
+        });
+        return shown;
+    }
 
     function loadAircraft() {
         const statusEl = document.getElementById("map-status");
@@ -60,35 +131,9 @@
         fetch("/map/live")
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
-                aircraftLayer.clearLayers();
-                data.aircraft.forEach(function (ac) {
-                    const color = ac.on_ground ? "#4caf50" : "#3aa0ff";
-                    const marker = L.circleMarker([ac.lat, ac.lon], {
-                        radius: 6,
-                        color: color,
-                        fillColor: color,
-                        fillOpacity: 0.8
-                    });
-                    const label = escapeHtml(ac.callsign || ac.icao24);
-                    const flags = [];
-                    if (ac.flagged_military) flags.push("Militär");
-                    if (ac.flagged_pia) flags.push("PIA");
-                    if (ac.flagged_ladd) flags.push("LADD");
-                    const typeInfoLink = ac.typecode
-                        ? "<br><a href=\"https://skybrary.aero/aircraft/" + encodeURIComponent(ac.typecode.toLowerCase()) +
-                          "\" target=\"_blank\" rel=\"noopener\">Info zum Typ ↗</a>"
-                        : "";
-                    marker.bindPopup(
-                        "<strong>" + label + "</strong><br>" +
-                        escapeHtml(ac.typecode || "unbekannter Typ") +
-                        (ac.registration ? " · " + escapeHtml(ac.registration) : "") + "<br>" +
-                        (ac.on_ground ? "am Boden" : "in der Luft") +
-                        (flags.length ? "<br>" + flags.join(", ") : "") +
-                        typeInfoLink
-                    );
-                    marker.addTo(aircraftLayer);
-                });
-                statusEl.textContent = data.aircraft.length + " Flugzeug(e) gefunden.";
+                lastAircraft = data.aircraft;
+                const shown = renderAircraft();
+                statusEl.textContent = shown + " von " + data.aircraft.length + " Flugzeug(en) angezeigt.";
             })
             .catch(function () {
                 statusEl.textContent = "Fehler beim Laden - siehe Server-Logs.";
@@ -96,6 +141,16 @@
     }
 
     document.getElementById("load-aircraft-btn").addEventListener("click", loadAircraft);
+    // Filter changes only re-render from the already-fetched data - never
+    // trigger a new /map/live call, which would otherwise hit the enabled
+    // data sources' rate limits on every checkbox click.
+    document.querySelectorAll("input[name='status-filter'], #filter-match, #filter-flagged").forEach(function (el) {
+        el.addEventListener("change", function () {
+            const statusEl = document.getElementById("map-status");
+            const shown = renderAircraft();
+            statusEl.textContent = shown + " von " + lastAircraft.length + " Flugzeug(en) angezeigt.";
+        });
+    });
     if (watches.length) {
         loadAircraft();
     }

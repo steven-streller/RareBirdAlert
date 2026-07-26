@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Statistik - RareBirdAlert{% endblock %}
+{% block content %}
+<h1>Statistik</h1>
+
+{% if stats.total == 0 %}
+<p class="empty">Noch keine Sichtungen an deinen beobachteten Flughäfen. Sobald welche auftauchen, zeigt diese Seite Auswertungen dazu.</p>
+{% else %}
+
+<div class="stat-tiles">
+    <div class="stat-tile">
+        <div class="stat-tile-value">{{ stats.total }}</div>
+        <div class="stat-tile-label">Sichtungen insgesamt</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-tile-value">{{ stats.first_seen.strftime('%d.%m.%Y') }}</div>
+        <div class="stat-tile-label">Erste Sichtung</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-tile-value">{{ stats.last_seen.strftime('%d.%m.%Y') }}</div>
+        <div class="stat-tile-label">Letzte Sichtung</div>
+    </div>
+</div>
+
+<h2>Sichtungen pro Monat</h2>
+{% set max_month = (stats.monthly|max(attribute='count')).count if stats.monthly else 0 %}
+<div class="bar-chart bar-chart-vertical" role="img" aria-label="Sichtungen pro Monat, letzte 12 Monate">
+    {% for row in stats.monthly %}
+    <div class="bar-chart-col" title="{{ row.month }}: {{ row.count }} Sichtung(en)">
+        <div class="bar-chart-bar-v" style="height: {{ (row.count / max_month * 100) if max_month else 0 }}%;"></div>
+        <div class="bar-chart-col-label">{{ row.month[5:] }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<h2>Meistgesichtete Typen</h2>
+{% if stats.top_types %}
+{% set max_type = (stats.top_types|max(attribute='count')).count %}
+<div class="bar-chart">
+    {% for row in stats.top_types %}
+    <div class="bar-chart-row">
+        <div class="bar-chart-row-label">{{ row.label }}</div>
+        <div class="bar-chart-track">
+            <div class="bar-chart-bar" style="width: {{ row.count / max_type * 100 }}%;"></div>
+        </div>
+        <div class="bar-chart-row-value">{{ row.count }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="empty">Keine Sichtung mit bekanntem Typ.</p>
+{% endif %}
+
+<h2>Top-Flughäfen</h2>
+{% set max_airport = (stats.top_airports|max(attribute='count')).count %}
+<div class="bar-chart">
+    {% for row in stats.top_airports %}
+    <div class="bar-chart-row">
+        <div class="bar-chart-row-label" title="{{ row.name }}">{{ row.label }}</div>
+        <div class="bar-chart-track">
+            <div class="bar-chart-bar" style="width: {{ row.count / max_airport * 100 }}%;"></div>
+        </div>
+        <div class="bar-chart-row-value">{{ row.count }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<h2>Häufigste Treffer</h2>
+{% set max_label = (stats.top_labels|max(attribute='count')).count %}
+<div class="bar-chart">
+    {% for row in stats.top_labels %}
+    <div class="bar-chart-row">
+        <div class="bar-chart-row-label">{{ row.label }}</div>
+        <div class="bar-chart-track">
+            <div class="bar-chart-bar" style="width: {{ row.count / max_label * 100 }}%;"></div>
+        </div>
+        <div class="bar-chart-row-value">{{ row.count }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+{% endif %}
+{% endblock %}

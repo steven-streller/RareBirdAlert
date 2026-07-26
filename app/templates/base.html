@@ -30,6 +30,7 @@
             <a href="/airports" class="{{ 'active' if active == 'airports' else '' }}">Flughäfen</a>
             <a href="/map" class="{{ 'active' if active == 'map' else '' }}">Karte</a>
             <a href="/watchlist" class="{{ 'active' if active == 'watchlist' else '' }}">Watchlist</a>
+            <a href="/stats" class="{{ 'active' if active == 'stats' else '' }}">Statistik</a>
             <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Einstellungen</a>
             {% if current_user.is_admin %}
             <a href="/admin" class="{{ 'active' if active == 'admin' else '' }}">Admin</a>
