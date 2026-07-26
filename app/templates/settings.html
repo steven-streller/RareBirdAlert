@@ -51,27 +51,42 @@
                     <input type="checkbox" name="{{ key }}_enabled" {{ 'checked' if is_enabled else '' }} />
                     Aktiviert
                 </label>
-                {% for field_key, field_label, field_type, placeholder in channel.fields %}
-                    {% if field_type == "checkbox" %}
-                        <label class="checkbox-row">
-                            <input type="checkbox" name="{{ field_key }}" {{ 'checked' if settings[field_key] == 'true' else '' }} />
-                            {{ field_label }}
-                        </label>
-                    {% else %}
-                        <label>
-                            {{ field_label }}
-                            <input
-                                type="{{ field_type }}"
-                                name="{{ field_key }}"
-                                value="{{ settings[field_key] }}"
-                                {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
-                                autocomplete="off"
-                            />
-                        </label>
-                    {% endif %}
-                {% endfor %}
+                {% if key == "webpush" %}
+                    <p class="item-sub">
+                        Zusätzlich zum Aktivieren muss jedes Gerät/jeder Browser
+                        einzeln abonniert werden - erfordert eine HTTPS-Verbindung
+                        (außer auf localhost).
+                    </p>
+                {% else %}
+                    {% for field_key, field_label, field_type, placeholder in channel.fields %}
+                        {% if field_type == "checkbox" %}
+                            <label class="checkbox-row">
+                                <input type="checkbox" name="{{ field_key }}" {{ 'checked' if settings[field_key] == 'true' else '' }} />
+                                {{ field_label }}
+                            </label>
+                        {% else %}
+                            <label>
+                                {{ field_label }}
+                                <input
+                                    type="{{ field_type }}"
+                                    name="{{ field_key }}"
+                                    value="{{ settings[field_key] }}"
+                                    {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+                                    autocomplete="off"
+                                />
+                            </label>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
                 <button class="primary" type="submit">Speichern</button>
             </form>
+            {% if key == "webpush" %}
+            <div class="webpush-controls">
+                <button type="button" class="secondary" onclick="rbaSubscribeWebPush('{{ csrf_token(request) }}')">Dieses Gerät abonnieren</button>
+                <button type="button" class="secondary" onclick="rbaUnsubscribeWebPush('{{ csrf_token(request) }}')">Dieses Gerät abbestellen</button>
+                <p id="webpush-status" class="item-sub"></p>
+            </div>
+            {% endif %}
             <form method="post" action="/settings/test/{{ key }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
                 <button class="secondary" type="submit">Testen</button>
@@ -79,4 +94,5 @@
         </div>
     </details>
 {% endfor %}
+<script src="/static/webpush.js"></script>
 {% endblock %}

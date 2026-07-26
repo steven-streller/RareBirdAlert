@@ -345,6 +345,12 @@ details.channel[open] summary::before {
     padding-bottom: 1.1rem;
 }
 
+.webpush-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
 button.primary {
     background: var(--accent);
     color: #0b1220;

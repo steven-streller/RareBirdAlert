@@ -167,3 +167,19 @@ class UserSetting(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", index=True)
     key: str = Field(index=True)
     value: str
+
+
+class PushSubscription(SQLModel, table=True):
+    """A browser's Web Push subscription for a user - one row per
+    browser/device, since a user can subscribe from several. `endpoint` is
+    unique because it's the push service's own identifier for that specific
+    browser subscription; re-subscribing the same browser updates its keys
+    in place rather than creating a duplicate row.
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    endpoint: str = Field(unique=True)
+    p256dh: str
+    auth: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)

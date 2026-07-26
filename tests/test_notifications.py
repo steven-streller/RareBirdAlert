@@ -1,8 +1,9 @@
 from sqlmodel import Session, SQLModel, create_engine
 
 from app import metrics
-from app.db import set_user_setting
-from app.notifications import CHANNELS, enabled_channels, notify_all
+from app.db import set_setting, set_user_setting
+from app.models import PushSubscription, User
+from app.notifications import CHANNELS, _channel_config, enabled_channels, notify_all
 
 
 def make_session() -> Session:
@@ -49,6 +50,28 @@ def test_notify_all_increments_the_notifications_sent_metric_with_result_label()
 
     after = metrics.notifications_sent_total.labels(channel="discord", result="fail")._value.get()
     assert after == before + 1
+
+
+def test_enabled_channels_respects_webpush_setting():
+    session = make_session()
+    set_user_setting(session, 1, "webpush_enabled", "true")
+    assert enabled_channels(session, user_id=1) == ["webpush"]
+
+
+def test_channel_config_for_webpush_includes_subscriptions_and_vapid_key():
+    session = make_session()
+    session.add(User(id=1, email="alice@example.com", password_hash="x"))
+    session.add(PushSubscription(user_id=1, endpoint="https://push.example/abc", p256dh="p", auth="a"))
+    session.commit()
+    set_setting(session, "vapid_private_key_pem", "fake-pem")
+
+    cfg = _channel_config(session, 1, "webpush")
+
+    assert len(cfg["subscriptions"]) == 1
+    assert cfg["subscriptions"][0].endpoint == "https://push.example/abc"
+    assert cfg["vapid_private_key_pem"] == "fake-pem"
+    assert cfg["user_email"] == "alice@example.com"
+    assert cfg["session"] is session
 
 
 def test_user_settings_are_isolated_between_users():
