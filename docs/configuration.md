@@ -16,6 +16,7 @@ Weboberfläche selbst.
 | `METRICS_TOKEN` | leer (offen) | Optionales Bearer-Token, um `/metrics` abzusichern. Siehe [Monitoring](monitoring.md). |
 | `RAREBIRDALERT_BACKUP_DIR` | `/app/data/backups` | Zielverzeichnis für automatische Datenbank-Backups. Siehe unten. |
 | `RAREBIRDALERT_BACKUP_KEEP` | `7` | Anzahl der aufzubewahrenden Backups (älteste werden nach jedem neuen Backup gelöscht). `0` deaktiviert die Rotation - dann bleiben alle Backups erhalten. |
+| `LOG_FORMAT` | `text` | Auf `json` setzen für strukturiertes JSON-Logging (auch für Uvicorn/APScheduler). Siehe [Monitoring](monitoring.md). |
 
 ## Admin-Account
 
