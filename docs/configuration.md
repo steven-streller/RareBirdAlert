@@ -43,6 +43,13 @@ prozessinterner Zähler (kein Redis nötig) und setzt sich bei jedem
 Container-Neustart zurück - für die Ein-Container-Architektur dieses
 Projekts ausreichend.
 
+`/register` ist ebenso abgesichert, allerdings pro Client-IP (nicht pro
+E-Mail, da jeder Versuch eine andere, noch nicht existierende Adresse
+verwendet): nach 5 Versuchen innerhalb von 5 Minuten wird weiter abgelehnt -
+**jeder** Versuch zählt, auch fehlgeschlagene (z. B. zu kurzes Passwort),
+da schon das massenhafte Anlegen von Accounts von einer IP aus der
+Missbrauch ist, den das verhindern soll.
+
 ## Poll-Intervall
 
 Wie oft die aktivierten Datenquellen pro beobachtetem Flughafen abgefragt

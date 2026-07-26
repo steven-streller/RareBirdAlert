@@ -169,6 +169,49 @@ def test_successful_login_resets_the_rate_limit_counter(client, monkeypatch):
     assert resp.headers["location"] == "/"
 
 
+def test_register_blocked_after_max_attempts_from_the_same_ip(client, monkeypatch):
+    monkeypatch.setattr("app.main.register_rate_limiter", LoginRateLimiter(max_attempts=3, window_seconds=300))
+
+    for i in range(3):
+        client.post(
+            "/register",
+            data={
+                "email": f"spammer{i}@example.com",
+                "password": "testpassword1",
+                "password_confirm": "testpassword1",
+            },
+        )
+
+    resp = client.post(
+        "/register",
+        data={"email": "onemore@example.com", "password": "testpassword1", "password_confirm": "testpassword1"},
+        follow_redirects=False,
+    )
+    assert resp.headers["location"] == "/register?error=ratelimited"
+
+
+def test_register_page_shows_ratelimited_message(client):
+    page = client.get("/register?error=ratelimited")
+    assert "Zu viele Registrierungsversuche" in page.text
+
+
+def test_register_rate_limit_counts_failed_attempts_too(client, monkeypatch):
+    # Unlike /login, every attempt counts here - including ones that fail
+    # validation (e.g. password too short) - the abuse this guards against
+    # is hammering the endpoint at all, not just successful signups.
+    monkeypatch.setattr("app.main.register_rate_limiter", LoginRateLimiter(max_attempts=2, window_seconds=300))
+
+    client.post("/register", data={"email": "bad1@example.com", "password": "short", "password_confirm": "short"})
+    client.post("/register", data={"email": "bad2@example.com", "password": "short", "password_confirm": "short"})
+
+    resp = client.post(
+        "/register",
+        data={"email": "good@example.com", "password": "testpassword1", "password_confirm": "testpassword1"},
+        follow_redirects=False,
+    )
+    assert resp.headers["location"] == "/register?error=ratelimited"
+
+
 def test_register_page_redirects_when_already_logged_in(client):
     register(client, "gina@example.com")
     resp = client.get("/register", follow_redirects=False)

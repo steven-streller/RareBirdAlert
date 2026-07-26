@@ -38,7 +38,7 @@ from app.models import (
     WatchlistEntry,
 )
 from app.notifications import CHANNELS, send_to_channel
-from app.rate_limit import login_rate_limiter
+from app.rate_limit import login_rate_limiter, register_rate_limiter
 from app.scheduler import poll_job, reschedule_backup_job, reschedule_poll_job, start_scheduler
 from app.security import hash_password, verify_password
 from app.version import __version__
@@ -157,6 +157,15 @@ async def register(request: Request):
 
     form = await request.form()
     verify_csrf(request, form.get("csrf_token"))
+
+    client_ip = request.client.host if request.client else "unknown"
+    if register_rate_limiter.is_blocked(client_ip, "register"):
+        return RedirectResponse(url="/register?error=ratelimited", status_code=303)
+    # Every attempt counts here, not just failures (unlike /login) - a
+    # "successful" registration is itself the abuse this guards against
+    # (unlimited account creation from one IP), so it must count too.
+    register_rate_limiter.record_failure(client_ip, "register")
+
     email = str(form.get("email", "")).strip().lower()
     password = str(form.get("password", ""))
     password_confirm = str(form.get("password_confirm", ""))

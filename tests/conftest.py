@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import create_engine
 
 from app.db import init_db
+from app.rate_limit import LoginRateLimiter
 
 # Captured once, before any monkeypatching, so tests that need to submit a
 # request without (or with a deliberately wrong) csrf_token - i.e. the CSRF
@@ -85,6 +86,24 @@ def _no_real_enrichment_calls(monkeypatch):
 
     monkeypatch.setattr("app.scheduler.adsbdb", _StubAdsbdb)
     monkeypatch.setattr("app.scheduler.planespotters", _StubPlanespotters)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limiters(monkeypatch):
+    """login_rate_limiter/register_rate_limiter (app/rate_limit.py) are
+    process-wide singletons, but TestClient always reports the same fake
+    client IP ("testclient") regardless of which test or TestClient instance
+    made the request - without this, attempts would accumulate across
+    completely unrelated tests (register_rate_limiter counts every /register
+    POST, and the `register()` helper below is used in nearly every test
+    file - enough calls across the whole session would eventually trip the
+    real limiter and start blocking registrations in later, unrelated
+    tests). Resetting to a fresh instance with the real production limits
+    before every test keeps each test's rate-limit budget isolated, while
+    still exercising the real limits faithfully within a single test.
+    """
+    monkeypatch.setattr("app.main.login_rate_limiter", LoginRateLimiter())
+    monkeypatch.setattr("app.main.register_rate_limiter", LoginRateLimiter())
 
 
 @pytest.fixture(autouse=True)

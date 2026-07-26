@@ -6,11 +6,18 @@ WINDOW_SECONDS = 300
 
 
 class LoginRateLimiter:
-    """In-memory sliding-window limiter for failed login attempts, keyed by
-    (client IP, email) - no Redis, consistent with the single-container,
-    single-process architecture. State resets on process restart, which is
-    an acceptable trade-off here: a self-hosted instance's operator
-    restarting their own container isn't the threat this defends against.
+    """In-memory sliding-window limiter for repeated attempts against a
+    sensitive endpoint, keyed by (client IP, identifier) - no Redis,
+    consistent with the single-container, single-process architecture.
+    State resets on process restart, which is an acceptable trade-off here:
+    a self-hosted instance's operator restarting their own container isn't
+    the threat this defends against.
+
+    Used for both /login (identifier is the attempted email, so different
+    users behind the same IP - e.g. a shared office network - don't lock
+    each other out) and /register (identifier is a fixed literal, since a
+    registration attempt has no natural per-user identifier - each one uses
+    a different, not-yet-existing email).
     """
 
     def __init__(self, max_attempts: int = MAX_ATTEMPTS, window_seconds: int = WINDOW_SECONDS):
@@ -44,3 +51,4 @@ class LoginRateLimiter:
 
 
 login_rate_limiter = LoginRateLimiter()
+register_rate_limiter = LoginRateLimiter()
