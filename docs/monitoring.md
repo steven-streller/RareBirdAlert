@@ -22,6 +22,11 @@ Gilt auch für Uvicorns Access-/Error-Logs und APScheduler - nicht nur für
 RareBirdAlerts eigene Log-Zeilen, damit die Log-Pipeline nicht zwei
 verschiedene Formate gleichzeitig sieht.
 
+Die Verbosität lässt sich unabhängig vom Format über `LOG_LEVEL` steuern
+(Standard `INFO`) - z. B. `DEBUG` zur Fehlersuche oder `WARNING`, um Rauschen
+zu reduzieren. Ein ungültiger Wert fällt still auf `INFO` zurück, statt den
+Start fehlschlagen zu lassen.
+
 ## Verfügbare Metriken
 
 | Metrik | Typ | Beschreibung |
