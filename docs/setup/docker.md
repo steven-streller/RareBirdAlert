@@ -6,7 +6,7 @@ cd RareBirdAlert
 docker compose up -d --build
 ```
 
-Danach unter <http://localhost:8080> einen Account anlegen (`/register`) und
+Danach unter <http://localhost:8000> einen Account anlegen (`/register`) und
 einloggen.
 
 ## `docker-compose.yml`
@@ -18,7 +18,7 @@ services:
     container_name: rarebirdalert
     restart: unless-stopped
     ports:
-      - "8080:8000"
+      - "8000:8000"
     volumes:
       - ./data:/app/data
     environment:
