@@ -25,7 +25,7 @@ Watchlist-Syntax sowie die Referenz aller Umgebungsvariablen.
 docker compose up -d --build
 ```
 
-Danach unter <http://localhost:8080> registrieren und loslegen.
+Danach unter <http://localhost:8000> registrieren und loslegen.
 
 ## Sicherheit
 
