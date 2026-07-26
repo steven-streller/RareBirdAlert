@@ -7,9 +7,12 @@ which was previously only exercised through the "not configured" early
 returns.
 """
 
+import json as json_module
+
 import requests
 
 from app import notifications
+from app.models import PushSubscription
 
 
 class FakeResponse:
@@ -280,3 +283,115 @@ def test_send_email_os_error_returns_false(monkeypatch):
     monkeypatch.setattr(notifications.smtplib, "SMTP", raise_exc)
 
     assert notifications.send_email(_email_cfg(), "t", "m") is False
+
+
+# --- Web Push --------------------------------------------------------------
+
+
+class FakeDBSession:
+    """Stands in for a real SQLModel Session - send_webpush only ever calls
+    .delete()/.commit() on it, to clean up a stale (410 Gone) subscription."""
+
+    def __init__(self):
+        self.deleted = []
+        self.committed = False
+
+    def delete(self, obj):
+        self.deleted.append(obj)
+
+    def commit(self):
+        self.committed = True
+
+
+def _webpush_cfg(subscriptions=None, session=None):
+    return {
+        "subscriptions": (
+            subscriptions
+            if subscriptions is not None
+            else [PushSubscription(id=1, user_id=1, endpoint="https://push.example/abc", p256dh="p256dh-key", auth="auth-key")]
+        ),
+        "vapid_private_key_pem": "-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----\n",
+        "user_email": "alice@example.com",
+        "session": session,
+    }
+
+
+def test_send_webpush_success_sends_to_each_subscription(monkeypatch):
+    monkeypatch.setattr(notifications, "load_vapid", lambda pem: "fake-vapid-object")
+    captured = {}
+
+    def fake_webpush(subscription_info, data, vapid_private_key, vapid_claims):
+        captured["subscription_info"] = subscription_info
+        captured["data"] = data
+        captured["vapid_private_key"] = vapid_private_key
+        captured["vapid_claims"] = vapid_claims
+
+    monkeypatch.setattr(notifications, "webpush", fake_webpush)
+
+    ok = notifications.send_webpush(_webpush_cfg(), "Titel", "Nachricht", url="https://example.com/photo")
+
+    assert ok is True
+    assert captured["subscription_info"] == {
+        "endpoint": "https://push.example/abc",
+        "keys": {"p256dh": "p256dh-key", "auth": "auth-key"},
+    }
+    assert captured["vapid_private_key"] == "fake-vapid-object"
+    assert captured["vapid_claims"] == {"sub": "mailto:alice@example.com"}
+    assert json_module.loads(captured["data"]) == {
+        "title": "Titel",
+        "body": "Nachricht",
+        "url": "https://example.com/photo",
+    }
+
+
+def test_send_webpush_returns_false_without_any_subscriptions():
+    assert notifications.send_webpush(_webpush_cfg(subscriptions=[]), "t", "m") is False
+
+
+def test_send_webpush_returns_false_without_a_vapid_key():
+    cfg = _webpush_cfg()
+    cfg["vapid_private_key_pem"] = ""
+    assert notifications.send_webpush(cfg, "t", "m") is False
+
+
+def test_send_webpush_deletes_a_stale_subscription_on_410_gone(monkeypatch):
+    from pywebpush import WebPushException
+
+    class FakeResponse:
+        status_code = 410
+
+    def raise_gone(*a, **k):
+        raise WebPushException("gone", response=FakeResponse())
+
+    monkeypatch.setattr(notifications, "load_vapid", lambda pem: "fake-vapid-object")
+    monkeypatch.setattr(notifications, "webpush", raise_gone)
+
+    sub = PushSubscription(id=1, user_id=1, endpoint="https://push.example/abc", p256dh="x", auth="y")
+    fake_session = FakeDBSession()
+
+    ok = notifications.send_webpush(_webpush_cfg(subscriptions=[sub], session=fake_session), "t", "m")
+
+    assert ok is False
+    assert fake_session.deleted == [sub]
+    assert fake_session.committed is True
+
+
+def test_send_webpush_logs_and_keeps_subscription_on_other_errors(monkeypatch):
+    from pywebpush import WebPushException
+
+    class FakeResponse:
+        status_code = 500
+
+    def raise_error(*a, **k):
+        raise WebPushException("server error", response=FakeResponse())
+
+    monkeypatch.setattr(notifications, "load_vapid", lambda pem: "fake-vapid-object")
+    monkeypatch.setattr(notifications, "webpush", raise_error)
+
+    sub = PushSubscription(id=1, user_id=1, endpoint="https://push.example/abc", p256dh="x", auth="y")
+    fake_session = FakeDBSession()
+
+    ok = notifications.send_webpush(_webpush_cfg(subscriptions=[sub], session=fake_session), "t", "m")
+
+    assert ok is False
+    assert fake_session.deleted == []

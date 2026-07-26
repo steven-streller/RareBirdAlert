@@ -108,6 +108,24 @@ def test_quiet_hours_disabled_by_default(client):
     assert 'name="quiet_hours_enabled" checked' not in page.text
 
 
+def test_settings_page_renders_webpush_subscribe_controls(client):
+    register(client, "alice@example.com")
+    page = client.get("/settings")
+
+    assert 'id="webpush"' in page.text
+    assert "rbaSubscribeWebPush" in page.text
+    assert "rbaUnsubscribeWebPush" in page.text
+    assert '<script src="/static/webpush.js">' in page.text
+
+
+def test_save_settings_persists_webpush_enabled_checkbox(client):
+    register(client, "alice@example.com")
+    client.post("/settings", data={"_section": "webpush", "webpush_enabled": "on"})
+
+    page = client.get("/settings")
+    assert 'name="webpush_enabled" checked' in page.text
+
+
 def test_safe_channel_anchor_never_echoes_unknown_input():
     # Regression test for a CodeQL "URL redirection from remote source"
     # (CWE-601) finding: an earlier version returned `value` itself on a

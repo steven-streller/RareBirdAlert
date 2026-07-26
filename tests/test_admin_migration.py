@@ -93,6 +93,36 @@ def test_existing_db_without_route_columns_gets_migrated(tmp_path, monkeypatch):
     assert sighting.route_destination_icao is None
 
 
+def test_init_db_generates_vapid_keys_once(tmp_path, monkeypatch):
+    db_path = tmp_path / "vapid.db"
+    from sqlmodel import create_engine
+
+    from app.db import get_setting
+
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
+    monkeypatch.setattr(db_module, "DB_PATH", str(db_path))
+    monkeypatch.setattr(db_module, "engine", engine)
+
+    db_module.init_db()
+
+    with Session(engine) as session:
+        private_key_1 = get_setting(session, "vapid_private_key_pem")
+        public_key_1 = get_setting(session, "vapid_public_key")
+    assert private_key_1.startswith("-----BEGIN PRIVATE KEY-----")
+    assert public_key_1
+
+    # a second init_db() run (e.g. container restart) must not regenerate
+    # the keypair - every existing browser subscription would otherwise
+    # silently stop working, since they're bound to the old public key.
+    db_module.init_db()
+
+    with Session(engine) as session:
+        private_key_2 = get_setting(session, "vapid_private_key_pem")
+        public_key_2 = get_setting(session, "vapid_public_key")
+    assert private_key_2 == private_key_1
+    assert public_key_2 == public_key_1
+
+
 def test_init_db_is_a_noop_for_admin_when_an_admin_already_exists(tmp_path, monkeypatch):
     db_path = tmp_path / "fresh.db"
     from sqlmodel import create_engine

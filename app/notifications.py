@@ -1,12 +1,16 @@
+import json
 import logging
 import smtplib
 from email.mime.text import MIMEText
 
 import requests
-from sqlmodel import Session
+from pywebpush import WebPushException, webpush
+from sqlmodel import Session, select
 
 from app import metrics
-from app.db import get_user_setting
+from app.db import get_setting, get_user_setting
+from app.models import PushSubscription, User
+from app.webpush import load_vapid
 
 logger = logging.getLogger("rarebirdalert.notifications")
 
@@ -134,6 +138,52 @@ def send_email(cfg: dict, title: str, message: str, url: str | None = None) -> b
         return False
 
 
+def send_webpush(cfg: dict, title: str, message: str, url: str | None = None) -> bool:
+    """Unlike the other channels, cfg here isn't built from simple
+    UserSetting text fields (there are none to configure - subscribing is
+    done via the browser's Push API, see the /push/* routes) but carries
+    the user's PushSubscription rows, the instance-wide VAPID private key,
+    and the open `session` itself, so a stale subscription (410 Gone - the
+    browser unsubscribed or the endpoint expired) can be deleted right away
+    instead of failing silently forever. See _channel_config below.
+    """
+    subscriptions = cfg.get("subscriptions") or []
+    private_key_pem = cfg.get("vapid_private_key_pem")
+    if not subscriptions or not private_key_pem:
+        logger.warning("Web Push not configured or no subscriptions, skipping")
+        return False
+
+    vapid = load_vapid(private_key_pem)
+    payload = json.dumps({"title": title, "body": message, "url": url})
+    contact = cfg.get("user_email") or "admin@localhost"
+    session: Session | None = cfg.get("session")
+
+    any_ok = False
+    for subscription in list(subscriptions):
+        subscription_info = {
+            "endpoint": subscription.endpoint,
+            "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth},
+        }
+        try:
+            webpush(
+                subscription_info=subscription_info,
+                data=payload,
+                vapid_private_key=vapid,
+                vapid_claims={"sub": f"mailto:{contact}"},
+            )
+            any_ok = True
+        except WebPushException as exc:
+            status_code = exc.response.status_code if exc.response is not None else None
+            if status_code in (404, 410) and session is not None:
+                # The browser unsubscribed or the endpoint expired - stop
+                # trying this one instead of failing on it forever.
+                session.delete(subscription)
+                session.commit()
+            else:
+                logger.error("Web Push send failed for %s: %s", subscription.endpoint, exc)
+    return any_ok
+
+
 # Each channel declares its settings fields as (key, label, input_type, placeholder).
 # The settings GUI renders these generically, so a new channel only needs an entry here.
 CHANNELS = {
@@ -185,12 +235,27 @@ CHANNELS = {
             ("email_to", "Empfänger-Adresse", "text", None),
         ],
     },
+    "webpush": {
+        "label": "Web Push (Browser)",
+        "send": send_webpush,
+        "fields": [],
+    },
 }
 for _channel in CHANNELS.values():
     _channel["keys"] = [field[0] for field in _channel["fields"]]
 
 
 def _channel_config(session: Session, user_id: int, channel: str) -> dict:
+    if channel == "webpush":
+        user = session.get(User, user_id)
+        return {
+            "subscriptions": session.exec(
+                select(PushSubscription).where(PushSubscription.user_id == user_id)
+            ).all(),
+            "vapid_private_key_pem": get_setting(session, "vapid_private_key_pem"),
+            "user_email": user.email if user else None,
+            "session": session,
+        }
     return {key: get_user_setting(session, user_id, key) for key in CHANNELS[channel]["keys"]}
 
 

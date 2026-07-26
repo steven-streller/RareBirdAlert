@@ -85,3 +85,23 @@ Bei Gmail als Versender: erfordert 2FA auf dem Google-Konto plus ein
 [App-Passwort](https://myaccount.google.com/apppasswords) (das normale
 Account-Passwort funktioniert nicht mehr für SMTP), Host `smtp.gmail.com`,
 Port `587`.
+
+## Web Push (Browser)
+
+Im Gegensatz zu allen anderen Kanälen ist hier **kein externer Account und
+keine Zugangsdaten** nötig - Benachrichtigungen kommen direkt vom Server
+über die Push-API des Browsers. Nach dem Aktivieren muss zusätzlich jedes
+Gerät/jeder Browser einzeln über den Button "Dieses Gerät abonnieren"
+abonniert werden (Berechtigungsabfrage des Browsers); "Dieses Gerät
+abbestellen" widerruft es wieder, nur für den aktuellen Browser.
+
+**Wichtige Einschränkung, die kein anderer Kanal hat:** Die Push-API von
+Browsern verlangt einen "sicheren Kontext" - also **HTTPS**, außer beim
+Testen auf `localhost`. Läuft RareBirdAlert hinter einem Reverse-Proxy ohne
+TLS-Terminierung, funktioniert dieser eine Kanal nicht, alle anderen Kanäle
+sind davon nicht betroffen.
+
+Der zugehörige VAPID-Schlüssel (identifiziert diese Instanz gegenüber den
+Push-Diensten der Browser) wird einmalig beim ersten Start automatisch
+erzeugt und in der Datenbank gespeichert - keine manuelle Einrichtung
+nötig.

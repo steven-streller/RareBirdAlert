@@ -7,6 +7,7 @@ from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.models import AircraftCategory, Setting, User, UserSetting
+from app.webpush import generate_keys
 
 DB_PATH = os.environ.get("RAREBIRDALERT_DB_PATH", "/app/data/rarebirdalert.db")
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False, "timeout": 30})
@@ -136,6 +137,9 @@ USER_DEFAULT_SETTINGS = {
     "quiet_hours_start": "22:00",
     "quiet_hours_end": "07:00",
     "quiet_hours_timezone": "Europe/Berlin",
+    # Web Push - no per-user text fields, subscribing is done via the
+    # browser's Push API (see app/webpush.py and the /push/* routes).
+    "webpush_enabled": "false",
 }
 # Every built-in category is enabled by default so a fresh account gets
 # alerts immediately without having to configure anything first.
@@ -208,6 +212,19 @@ def _ensure_admin_exists(session: Session) -> None:
         session.add(first_user)
 
 
+def _ensure_vapid_keys_exist(session: Session) -> None:
+    """A VAPID keypair identifies this instance to push services and is
+    shared by all users - generated once, on first use, and stored as
+    regular global Settings rather than a file, so it survives across
+    container recreation as long as the database volume does.
+    """
+    if get_setting(session, "vapid_private_key_pem"):
+        return
+    private_pem, public_b64url = generate_keys()
+    session.add(Setting(key="vapid_private_key_pem", value=private_pem))
+    session.add(Setting(key="vapid_public_key", value=public_b64url))
+
+
 def init_db() -> None:
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     SQLModel.metadata.create_all(engine)
@@ -226,6 +243,7 @@ def init_db() -> None:
             if not existing:
                 session.add(Setting(key=key, value=value))
         _ensure_admin_exists(session)
+        _ensure_vapid_keys_exist(session)
         session.commit()
 
 

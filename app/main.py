@@ -30,6 +30,7 @@ from app.models import (
     AircraftCategory,
     Airport,
     AirportWatch,
+    PushSubscription,
     Sighting,
     SightingMatch,
     User,
@@ -612,6 +613,61 @@ async def test_notification(channel: str, request: Request, current_user: User =
         )
     anchor = _safe_channel_anchor(channel)
     return RedirectResponse(url=f"/settings?tested={'ok' if ok else 'fail'}#{anchor}", status_code=303)
+
+
+# --- Web Push subscriptions -----------------------------------------------------
+# JSON APIs called from app/static/webpush.js, not plain HTML forms - the
+# CSRF token travels as an X-CSRF-Token header instead of a form field.
+
+
+@app.get("/push/vapid-public-key")
+def push_vapid_public_key(current_user: User = Depends(require_user)):
+    with Session(engine) as session:
+        return {"key": get_setting(session, "vapid_public_key")}
+
+
+@app.post("/push/subscribe")
+async def push_subscribe(request: Request, current_user: User = Depends(require_user)):
+    verify_csrf(request, request.headers.get("x-csrf-token"))
+    body = await request.json()
+    endpoint = str(body.get("endpoint", ""))
+    keys = body.get("keys") or {}
+    p256dh = str(keys.get("p256dh", ""))
+    auth = str(keys.get("auth", ""))
+    if not endpoint or not p256dh or not auth:
+        raise HTTPException(status_code=400, detail="Invalid subscription")
+
+    with Session(engine) as session:
+        existing = session.exec(select(PushSubscription).where(PushSubscription.endpoint == endpoint)).first()
+        if existing:
+            existing.user_id = current_user.id
+            existing.p256dh = p256dh
+            existing.auth = auth
+            session.add(existing)
+        else:
+            session.add(
+                PushSubscription(user_id=current_user.id, endpoint=endpoint, p256dh=p256dh, auth=auth)
+            )
+        session.commit()
+    return {"status": "ok"}
+
+
+@app.post("/push/unsubscribe")
+async def push_unsubscribe(request: Request, current_user: User = Depends(require_user)):
+    verify_csrf(request, request.headers.get("x-csrf-token"))
+    body = await request.json()
+    endpoint = str(body.get("endpoint", ""))
+
+    with Session(engine) as session:
+        existing = session.exec(
+            select(PushSubscription).where(
+                PushSubscription.endpoint == endpoint, PushSubscription.user_id == current_user.id
+            )
+        ).first()
+        if existing:
+            session.delete(existing)
+            session.commit()
+    return {"status": "ok"}
 
 
 # --- Admin (global infrastructure, admin account only) -------------------------
