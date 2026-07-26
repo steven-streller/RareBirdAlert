@@ -53,6 +53,7 @@ class WatchlistEntry(SQLModel, table=True):
     label: str
     match_type: str  # "typecode" | "registration" | "icao24" | "callsign_prefix" | "operator_contains"
     pattern: str
+    enabled: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

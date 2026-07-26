@@ -24,6 +24,19 @@ def test_toggle_unknown_category_is_a_noop(client):
     assert resp.headers["location"] == "/watchlist"
 
 
+def test_builtin_category_shows_its_criterion(client):
+    register(client, "alice@example.com")
+    page = client.get("/watchlist")
+    assert "Callsign-Präfix: GAF" in page.text
+
+
+def test_builtin_category_with_empty_pattern_shows_criterion_without_trailing_colon(client):
+    register(client, "alice@example.com")
+    page = client.get("/watchlist")
+    assert "adsb.lol-Flag (militärisch/PIA/LADD)" in page.text
+    assert "adsb.lol-Flag (militärisch/PIA/LADD):" not in page.text
+
+
 def test_add_watchlist_entry(client):
     register(client, "alice@example.com")
     resp = client.post(
@@ -50,6 +63,36 @@ def test_add_watchlist_entry_requires_label_and_pattern(client):
     client.post("/watchlist", data={"label": "", "match_type": "typecode", "pattern": ""})
     page = client.get("/watchlist")
     assert "Noch keine eigenen Einträge." in page.text
+
+
+def test_new_watchlist_entry_is_enabled_by_default(client):
+    register(client, "alice@example.com")
+    client.post("/watchlist", data={"label": "Beluga XL", "match_type": "registration", "pattern": "F-GXLG"})
+    page = client.get("/watchlist")
+    assert "○ Inaktiv" not in page.text
+
+
+def test_toggle_watchlist_entry_disables_and_reenables_own_entry_only(client):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    alice = client
+    register(alice, "alice@example.com")
+    bob = TestClient(app)
+    register(bob, "bob@example.com")
+
+    alice.post("/watchlist", data={"label": "Alice Entry", "match_type": "typecode", "pattern": "DC3"})
+
+    # Bob can't toggle Alice's entry (id 1) even though he can guess the URL.
+    bob.post("/watchlist/1/toggle")
+    assert "○ Inaktiv" not in alice.get("/watchlist").text
+
+    alice.post("/watchlist/1/toggle")
+    assert "○ Inaktiv" in alice.get("/watchlist").text
+
+    alice.post("/watchlist/1/toggle")
+    assert "○ Inaktiv" not in alice.get("/watchlist").text
 
 
 def test_delete_watchlist_entry_only_removes_own(client):

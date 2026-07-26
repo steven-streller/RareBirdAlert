@@ -255,7 +255,7 @@ def poll_job() -> None:
             max_radius[w.airport_id] = max(max_radius.get(w.airport_id, 0.0), w.radius_km)
 
         categories = session.exec(select(AircraftCategory)).all()
-        watchlist_entries = session.exec(select(WatchlistEntry)).all()
+        watchlist_entries = session.exec(select(WatchlistEntry).where(WatchlistEntry.enabled)).all()
 
         cutoff = datetime.utcnow() - timedelta(seconds=STALE_TRACK_SECONDS)
         for stale in session.exec(select(AircraftTrackState).where(AircraftTrackState.last_seen_at < cutoff)):

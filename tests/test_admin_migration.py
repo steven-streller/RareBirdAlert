@@ -187,6 +187,48 @@ def test_existing_db_without_track_state_notified_columns_gets_migrated(tmp_path
     assert track.last_ground_speed_kt is None
 
 
+def test_existing_db_without_watchlist_enabled_column_gets_migrated_and_defaults_to_enabled(tmp_path, monkeypatch):
+    """Simulates an instance that predates being able to pause a watchlist
+    entry: a `watchlistentry` table without `enabled`, with rows already in
+    it. Existing entries must default to enabled so they keep matching
+    exactly as before, instead of silently going quiet."""
+    db_path = tmp_path / "legacy_watchlist.db"
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """
+        CREATE TABLE watchlistentry (
+            id INTEGER PRIMARY KEY,
+            user_id INTEGER,
+            label TEXT,
+            match_type TEXT,
+            pattern TEXT,
+            created_at TEXT
+        )
+        """
+    )
+    conn.execute(
+        "INSERT INTO watchlistentry (id, user_id, label, match_type, pattern, created_at) "
+        "VALUES (1, 1, 'DC-3 Fan', 'typecode', 'DC3', '2026-01-01')"
+    )
+    conn.commit()
+    conn.close()
+
+    from sqlmodel import create_engine
+
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
+    monkeypatch.setattr(db_module, "DB_PATH", str(db_path))
+    monkeypatch.setattr(db_module, "engine", engine)
+
+    db_module.init_db()
+
+    from app.models import WatchlistEntry
+
+    with Session(engine) as session:
+        entry = session.exec(select(WatchlistEntry).where(WatchlistEntry.label == "DC-3 Fan")).first()
+
+    assert entry.enabled is True
+
+
 def test_init_db_generates_vapid_keys_once(tmp_path, monkeypatch):
     db_path = tmp_path / "vapid.db"
     from sqlmodel import create_engine

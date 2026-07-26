@@ -87,6 +87,7 @@ MATCH_TYPE_LABELS = {
     "icao24": "ICAO24-Hexcode",
     "callsign_prefix": "Callsign-Präfix",
     "operator_contains": "Betreiber enthält",
+    "flagged_military_or_pia_or_ladd": "adsb.lol-Flag (militärisch/PIA/LADD)",
 }
 
 
@@ -479,6 +480,8 @@ def watchlist_page(request: Request, saved: str = "", current_user: User = Depen
                 "key": c.key,
                 "label": c.label,
                 "description": c.description,
+                "match_type": c.match_type,
+                "pattern": c.pattern,
                 "enabled": get_user_setting(session, current_user.id, f"category_enabled_{c.key}") == "true",
             }
             for c in categories
@@ -528,6 +531,19 @@ async def add_watchlist_entry(request: Request, current_user: User = Depends(req
         session.commit()
 
     return RedirectResponse(url="/watchlist?saved=1", status_code=303)
+
+
+@app.post("/watchlist/{entry_id}/toggle")
+async def toggle_watchlist_entry(entry_id: int, request: Request, current_user: User = Depends(require_user)):
+    form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
+    with Session(engine) as session:
+        entry = session.get(WatchlistEntry, entry_id)
+        if entry and entry.user_id == current_user.id:
+            entry.enabled = not entry.enabled
+            session.add(entry)
+            session.commit()
+    return RedirectResponse(url="/watchlist", status_code=303)
 
 
 @app.post("/watchlist/{entry_id}/delete")
