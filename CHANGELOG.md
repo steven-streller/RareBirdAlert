@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.16](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.15...v0.1.16) (2026-07-26)
+
+
+### Features
+
+* add a personal stats page and live-radar filters ([#60](https://github.com/steven-streller/RareBirdAlert/issues/60)) ([9c59e40](https://github.com/steven-streller/RareBirdAlert/commit/9c59e40f92496ae84b5191e15a9e7531009b1227))
+
 ## [0.1.15](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.14...v0.1.15) (2026-07-26)
 
 
