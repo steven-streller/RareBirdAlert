@@ -61,6 +61,32 @@ Tests, die OpenSky- oder Netzwerk-Aufrufe berühren, mocken diese immer
 (siehe `tests/test_opensky_client.py`) – der Testlauf darf nie vom Internet
 abhängen.
 
+### E2E-Tests
+
+`e2e/` enthält Playwright-Browsertests für den Golden Path (registrieren,
+Flughafen über die Live-Suche hinzufügen, Ruhezeiten speichern) - bewusst
+getrennt von `tests/`, weil sie einen echten Browser und einen echten
+laufenden Server brauchen, statt der In-Process-ASGI-`TestClient`s. Sie
+fangen Dinge, die die restliche Suite grundsätzlich nicht sehen kann - z. B.
+ein rein visuelles CSS-Problem (weiße statt dunkle Eingabefelder), das sich
+in keinem HTTP-Status-Code oder HTML-String-Vergleich zeigt.
+
+Lokal ausführen:
+
+```bash
+pip install -r requirements-e2e.txt
+playwright install chromium
+pytest e2e/ -v
+```
+
+`e2e/conftest.py` startet dafür die echte App als Subprozess (eigene
+SQLite-Datei, `DISABLE_SCHEDULER=true` - sonst würde jeder Testlauf die
+~500.000-Zeilen-Flugzeugdatenbank herunterladen und echte Datenquellen
+abfragen, sobald ein Flughafen beobachtet wird). Läuft als eigener
+`e2e`-Job in CI, getrennt von `lint-and-test` - `pytest` ohne Pfadangabe
+(wie in `lint-and-test`) sammelt wegen `testpaths = ["tests"]` in
+`pyproject.toml` ohnehin nie etwas aus `e2e/` ein.
+
 ### Coverage
 
 CI läuft mit `pytest --cov=app --cov-report=term-missing` und schlägt fehl,
