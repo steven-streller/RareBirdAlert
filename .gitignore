@@ -6,6 +6,7 @@ data/*.db-journal
 data/*.db-wal
 data/*.db-shm
 data/aircraft-db.csv
+data/backups/
 .env
 .pytest_cache/
 .ruff_cache/
