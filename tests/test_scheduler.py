@@ -562,11 +562,15 @@ def test_process_state_enriches_sighting_with_route_on_match(test_engine, monkey
 
     def fake_fetch_route(callsign):
         captured_callsigns.append(callsign)
+        # airport is EDDF (see _make_airport default) and this is a landing
+        # there, so the destination must be EDDF for the plausibility check
+        # in _route_is_plausible to accept it - see the dedicated tests below
+        # for what happens when it doesn't match.
         return {
-            "origin_icao": "EDDF",
-            "origin_name": "Frankfurt",
-            "destination_icao": "EDDM",
-            "destination_name": "München",
+            "origin_icao": "EDDM",
+            "origin_name": "München",
+            "destination_icao": "EDDF",
+            "destination_name": "Frankfurt",
         }
 
     monkeypatch.setattr(scheduler.adsbdb, "fetch_route", fake_fetch_route)
@@ -582,10 +586,87 @@ def test_process_state_enriches_sighting_with_route_on_match(test_engine, monkey
         session.commit()
 
         sighting = session.exec(select(Sighting)).first()
-        assert sighting.route_origin_icao == "EDDF"
-        assert sighting.route_destination_icao == "EDDM"
-        assert sighting.route_destination_name == "München"
+        assert sighting.route_origin_icao == "EDDM"
+        assert sighting.route_origin_name == "München"
+        assert sighting.route_destination_icao == "EDDF"
     assert captured_callsigns == ["GAF123"]
+
+
+def test_process_state_drops_route_that_disagrees_with_the_landing_airport(test_engine, monkeypatch):
+    """Regression test: adsbdb.com's route is schedule data keyed by
+    callsign, not tied to this specific flight/day, and can flatly disagree
+    with reality (e.g. a callsign reused for a different rotation). A route
+    whose destination isn't the airport we're actually landing at must be
+    dropped rather than shown as if it were correct."""
+    monkeypatch.setattr(scheduler.aircraft_db, "lookup", lambda icao24: {"typecode": "A320"})
+    monkeypatch.setattr(
+        scheduler.adsbdb,
+        "fetch_route",
+        lambda callsign: {
+            "origin_icao": "EDDF",
+            "origin_name": "Frankfurt",
+            "destination_icao": "LBSF",
+            "destination_name": "Sofia",
+        },
+    )
+
+    with Session(test_engine) as session:
+        airport = _make_airport(session, icao="EDDW")  # actual landing airport, not Sofia
+        user = User(email="watcher@example.com", password_hash="x")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        entry = WatchlistEntry(user_id=user.id, label="A320 Fan", match_type="typecode", pattern="A320")
+        session.add(entry)
+        session.commit()
+        session.refresh(entry)
+
+        state = StateVector(icao24="abc123", callsign="DLH3EE", on_ground=True, lat=53.0, lon=8.8)
+        scheduler._process_state(session, airport, state, [], [entry])
+        session.commit()
+
+        sighting = session.exec(select(Sighting)).first()
+        assert sighting.route_origin_icao is None
+        assert sighting.route_destination_icao is None
+
+
+def test_process_state_keeps_route_for_departure_matching_origin(test_engine, monkeypatch):
+    monkeypatch.setattr(scheduler.aircraft_db, "lookup", lambda icao24: {"typecode": "A320"})
+    monkeypatch.setattr(
+        scheduler.adsbdb,
+        "fetch_route",
+        lambda callsign: {
+            "origin_icao": "EDDW",
+            "origin_name": "Bremen",
+            "destination_icao": "EDDM",
+            "destination_name": "München",
+        },
+    )
+
+    with Session(test_engine) as session:
+        airport = _make_airport(session, icao="EDDW")
+        user = User(email="watcher@example.com", password_hash="x")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        entry = WatchlistEntry(user_id=user.id, label="A320 Fan", match_type="typecode", pattern="A320")
+        session.add(entry)
+
+        # Already rolling on the ground -> the next fast reading is a takeoff roll.
+        session.add(
+            AircraftTrackState(icao24="abc123", airport_id=airport.id, on_ground=True, last_ground_speed_kt=10)
+        )
+        session.commit()
+        state = StateVector(
+            icao24="abc123", callsign="DLH3EE", on_ground=True, lat=53.0, lon=8.8, ground_speed_kt=60
+        )
+        scheduler._process_state(session, airport, state, [], [entry])
+        session.commit()
+
+        sighting = session.exec(select(Sighting)).first()
+        assert sighting.event_type == "takeoff_roll"
+        assert sighting.route_origin_icao == "EDDW"
+        assert sighting.route_destination_icao == "EDDM"
 
 
 def test_process_state_skips_route_lookup_without_callsign(test_engine, monkeypatch):
