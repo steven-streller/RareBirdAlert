@@ -1,11 +1,47 @@
+import logging
+
+from app.main import _HealthCheckLogFilter
 from app.rate_limit import LoginRateLimiter
 from tests.conftest import register
+
+
+def _log_record(message: str) -> logging.LogRecord:
+    return logging.LogRecord("test", logging.INFO, __file__, 1, message, None, None)
 
 
 def test_healthz_does_not_require_login(client):
     resp = client.get("/healthz")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
+
+
+def test_readyz_does_not_require_login(client):
+    resp = client.get("/readyz")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
+def test_readyz_returns_503_when_the_database_is_unreachable(client, monkeypatch):
+    from app.main import engine
+
+    def broken_connect(*args, **kwargs):
+        raise OSError("simulated database failure")
+
+    monkeypatch.setattr(engine, "connect", broken_connect)
+
+    resp = client.get("/readyz")
+    assert resp.status_code == 503
+
+
+def test_health_check_log_filter_suppresses_probe_and_metrics_hits():
+    filt = _HealthCheckLogFilter()
+    for path in ("/healthz", "/readyz", "/metrics"):
+        assert filt.filter(_log_record(f'"GET {path} HTTP/1.1" 200')) is False
+
+
+def test_health_check_log_filter_allows_other_requests():
+    filt = _HealthCheckLogFilter()
+    assert filt.filter(_log_record('"GET /settings HTTP/1.1" 200')) is True
 
 
 def test_unauthenticated_dashboard_redirects_to_login(client):

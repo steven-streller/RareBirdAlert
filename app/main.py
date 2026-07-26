@@ -43,6 +43,7 @@ from app.security import hash_password, verify_password
 from app.version import __version__
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("rarebirdalert.main")
 
 
 class _HealthCheckLogFilter(logging.Filter):
@@ -52,7 +53,7 @@ class _HealthCheckLogFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         message = record.getMessage()
-        return "/healthz" not in message and "/metrics" not in message
+        return not any(path in message for path in ("/healthz", "/readyz", "/metrics"))
 
 
 logging.getLogger("uvicorn.access").addFilter(_HealthCheckLogFilter())
@@ -101,6 +102,29 @@ def on_startup() -> None:
 
 @app.get("/healthz")
 def healthz():
+    """Liveness - deliberately checks nothing but "is this process
+    responding". Must never depend on the database or any other external
+    resource: a Kubernetes liveness probe failure kills and restarts the
+    pod, which doesn't fix a broken database and only compounds an outage
+    (lost scheduler state, lost in-memory rate-limiter state, restart
+    loops). See /readyz for the check that's actually meant to catch that.
+    """
+    return {"status": "ok"}
+
+
+@app.get("/readyz")
+def readyz():
+    """Readiness - is this instance actually able to serve requests right
+    now. A failure here only pulls the pod out of a Kubernetes Service's
+    routing rotation, it doesn't restart anything - the correct response to
+    "the database is temporarily unreachable", unlike killing the pod.
+    """
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql("SELECT 1")
+    except Exception as exc:
+        logger.error("Readiness check failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
     return {"status": "ok"}
 
 

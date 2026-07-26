@@ -105,12 +105,18 @@ spec:
             limits:
               cpu: 300m
               memory: 384Mi
+          # /readyz prüft die Datenbank-Erreichbarkeit - bei Fehlschlag nimmt
+          # Kubernetes den Pod nur aus dem Traffic-Routing.
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /readyz
               port: 8000
             initialDelaySeconds: 5
             periodSeconds: 10
+          # /healthz prüft bewusst nichts außer "Prozess antwortet" - ein
+          # Liveness-Fehlschlag killt und restartet den Pod, das würde eine
+          # kurzzeitig nicht erreichbare Datenbank nur verschlimmern statt
+          # beheben.
           livenessProbe:
             httpGet:
               path: /healthz
