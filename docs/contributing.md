@@ -79,6 +79,8 @@ playwright install chromium
 pytest e2e/ -v
 ```
 
+Oder `make install-e2e && make e2e`.
+
 `e2e/conftest.py` startet dafür die echte App als Subprozess (eigene
 SQLite-Datei, `DISABLE_SCHEDULER=true` - sonst würde jeder Testlauf die
 ~500.000-Zeilen-Flugzeugdatenbank herunterladen und echte Datenquellen
