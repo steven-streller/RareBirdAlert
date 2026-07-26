@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.15](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.14...v0.1.15) (2026-07-26)
+
+
+### Features
+
+* collapse nav into a burger menu on mobile ([#58](https://github.com/steven-streller/RareBirdAlert/issues/58)) ([4834ac1](https://github.com/steven-streller/RareBirdAlert/commit/4834ac1c873722eae4e96586a5d1dd77d5138bc0))
+
 ## [0.1.14](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.13...v0.1.14) (2026-07-26)
 
 
