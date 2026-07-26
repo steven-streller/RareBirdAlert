@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.7...v0.1.8) (2026-07-26)
+
+
+### Bug Fixes
+
+* use consistent port 8000 in docker-compose and docs ([#40](https://github.com/steven-streller/RareBirdAlert/issues/40)) ([73a53e7](https://github.com/steven-streller/RareBirdAlert/commit/73a53e746e88cfc81b3bec184e8d0355e39ab4cb))
+
 ## [0.1.7](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.6...v0.1.7) (2026-07-26)
 
 
