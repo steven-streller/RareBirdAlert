@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.13](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.12...v0.1.13) (2026-07-26)
+
+
+### Features
+
+* add Makefile for local dev setup ([#54](https://github.com/steven-streller/RareBirdAlert/issues/54)) ([13f2ef7](https://github.com/steven-streller/RareBirdAlert/commit/13f2ef765a5865cb4068bc7bfa04961605e0e58d))
+
 ## [0.1.12](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.11...v0.1.12) (2026-07-26)
 
 
