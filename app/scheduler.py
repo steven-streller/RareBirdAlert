@@ -63,6 +63,25 @@ EVENT_MESSAGE_PHRASES = {
     "departure": "ist in {airport} gestartet",
 }
 
+ARRIVAL_EVENT_TYPES = {"approach", "landing"}
+DEPARTURE_EVENT_TYPES = {"takeoff_roll", "departure"}
+
+
+def _route_is_plausible(route: dict, airport_icao: str, event_type: str) -> bool:
+    """adsbdb.com's route is schedule data keyed by callsign, not tied to
+    this specific flight/day - airlines reuse callsigns across different
+    rotations (wet-lease, aircraft swaps, ad-hoc schedule changes), so it can
+    flatly disagree with the airport we're actually observing the aircraft
+    at. Cross-checking against that airport can't confirm a route is right,
+    but it can catch the case where it's clearly wrong for *this* sighting -
+    e.g. an approach to EDDW where adsbdb claims the destination is LBSF.
+    """
+    if event_type in ARRIVAL_EVENT_TYPES and route.get("destination_icao"):
+        return route["destination_icao"].upper() == airport_icao.upper()
+    if event_type in DEPARTURE_EVENT_TYPES and route.get("origin_icao"):
+        return route["origin_icao"].upper() == airport_icao.upper()
+    return True
+
 
 def _process_state(
     session: Session,
@@ -168,6 +187,16 @@ def _process_state(
     # this up for every polled aircraft would be needless load against a
     # free, unauthenticated API for traffic nobody cares about.
     route = adsbdb.fetch_route(state.callsign) if state.callsign else None
+    if route and not _route_is_plausible(route, airport.icao, event_type):
+        logger.info(
+            "Dropping implausible adsbdb route for %s (%s at %s): %s -> %s",
+            state.callsign,
+            event_type,
+            airport.icao,
+            route.get("origin_icao"),
+            route.get("destination_icao"),
+        )
+        route = None
     photo = planespotters.fetch_photo(state.icao24)
 
     sighting = Sighting(

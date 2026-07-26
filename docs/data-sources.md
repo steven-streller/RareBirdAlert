@@ -138,6 +138,18 @@ adsbdb.com bleibt die Route einfach leer; das ist ein rein optionales
 Zusatzfeature und blockiert nie die eigentliche Sichtungs-Erkennung oder
 Benachrichtigung.
 
+Weil das Fahrplandaten sind statt einer tagesaktuellen Zuordnung, können sie
+schlicht falsch sein - z. B. wenn eine Airline denselben Callsign an einem
+Tag für eine andere Rotation nutzt (Flugzeugtausch, Nasslease, spontane
+Umplanung) als adsbdb.com hinterlegt hat. RareBirdAlert prüft deshalb, ob
+die von adsbdb.com gemeldete Route überhaupt zu dem Flughafen passt, an dem
+die Sichtung tatsächlich stattfindet (Ziel bei Anflug/Landung, Start bei
+Startrollen/Start) - passt sie nicht, wird die Route komplett verworfen
+statt eine erkennbar falsche Route anzuzeigen. Das fängt offensichtliche
+Fehltreffer ab, ist aber kein Beweis für Korrektheit in die andere Richtung:
+eine Route, die zum beobachteten Flughafen passt, kann im Detail (z. B. beim
+Ursprungsflughafen) trotzdem veraltet sein.
+
 ## Flugzeugfoto (planespotters.net)
 
 Genau wie die Flugroute wird bei einer erkannten Sichtung zusätzlich ein
