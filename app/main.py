@@ -91,7 +91,12 @@ MATCH_TYPE_LABELS = {
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
-    start_scheduler()
+    # Escape hatch for E2E/manual testing (see e2e/conftest.py) - without it,
+    # every test run would trigger a real ~500k-row OpenSky metadata
+    # download and, once an airport is watched, real polling against
+    # OpenSky/adsb.lol/airplanes.live. Never set in normal operation.
+    if os.environ.get("DISABLE_SCHEDULER", "false").lower() != "true":
+        start_scheduler()
 
 
 @app.get("/healthz")
