@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.14](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.13...v0.1.14) (2026-07-26)
+
+
+### Bug Fixes
+
+* label sighting-feed timestamps as UTC ([#56](https://github.com/steven-streller/RareBirdAlert/issues/56)) ([02bc5ed](https://github.com/steven-streller/RareBirdAlert/commit/02bc5ed5a623dd7a821feae77a061ca3edad70b8))
+
 ## [0.1.13](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.12...v0.1.13) (2026-07-26)
 
 
