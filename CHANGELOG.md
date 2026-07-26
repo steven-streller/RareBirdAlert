@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.9](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.8...v0.1.9) (2026-07-26)
+
+
+### Features
+
+* add a /readyz endpoint with a real database check ([#43](https://github.com/steven-streller/RareBirdAlert/issues/43)) ([ac2f9d1](https://github.com/steven-streller/RareBirdAlert/commit/ac2f9d10c352fcebfd3862b2e331e024b37ec6aa))
+* add structured JSON logging (LOG_FORMAT=json) ([#45](https://github.com/steven-streller/RareBirdAlert/issues/45)) ([4df9cd5](https://github.com/steven-streller/RareBirdAlert/commit/4df9cd50463e88bf8ea53fb863a3610508ff1bab))
+
 ## [0.1.8](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.7...v0.1.8) (2026-07-26)
 
 
