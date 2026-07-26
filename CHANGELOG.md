@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.10](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.9...v0.1.10) (2026-07-26)
+
+
+### Features
+
+* add LOG_LEVEL env var to control log verbosity ([#46](https://github.com/steven-streller/RareBirdAlert/issues/46)) ([fdf95cb](https://github.com/steven-streller/RareBirdAlert/commit/fdf95cb8e56e4c939c8dff6fb71f43df2a211f4f))
+* add rate limiting to the registration endpoint ([#48](https://github.com/steven-streller/RareBirdAlert/issues/48)) ([3bfdf9e](https://github.com/steven-streller/RareBirdAlert/commit/3bfdf9ef92994e2d373a9f43d4e3bd4fff40f3af))
+
 ## [0.1.9](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.8...v0.1.9) (2026-07-26)
 
 
