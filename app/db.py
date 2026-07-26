@@ -226,6 +226,21 @@ def _ensure_track_state_notified_columns() -> None:
         conn.commit()
 
 
+def _ensure_watchlist_entry_enabled_column() -> None:
+    """Same rationale as _ensure_sighting_route_columns - the enabled flag
+    on WatchlistEntry (lets a user pause an entry without deleting it) was
+    added after the initial release. Existing entries default to enabled so
+    they keep matching exactly as before.
+    """
+    with engine.connect() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(watchlistentry)").fetchall()}
+        if not columns:
+            return
+        if "enabled" not in columns:
+            conn.exec_driver_sql("ALTER TABLE watchlistentry ADD COLUMN enabled BOOLEAN NOT NULL DEFAULT 1")
+        conn.commit()
+
+
 def _ensure_admin_exists(session: Session) -> None:
     """Guarantees exactly one admin exists after every startup.
 
@@ -264,6 +279,7 @@ def init_db() -> None:
     _ensure_sighting_photo_columns()
     _ensure_sighting_event_type_column()
     _ensure_track_state_notified_columns()
+    _ensure_watchlist_entry_enabled_column()
     with Session(engine) as session:
         for category in CATEGORIES:
             existing = session.exec(

@@ -11,15 +11,18 @@
     Vollständigkeit. Details siehe <a href="/settings">Dokumentation</a>.
 </p>
 {% for category in categories %}
-<div class="item-row">
+<div class="item-row {{ '' if category.enabled else 'inactive' }}">
     <div class="item-main">
         <div class="item-title">{{ category.label }}</div>
         {% if category.description %}<div class="item-sub">{{ category.description }}</div>{% endif %}
+        <div class="item-sub">
+            {{ match_type_labels.get(category.match_type, category.match_type) }}{% if category.pattern %}: {{ category.pattern }}{% endif %}
+        </div>
     </div>
     <form method="post" action="/watchlist/category/{{ category.key }}/toggle">
         <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
         <button class="toggle-btn {{ 'active' if category.enabled else '' }}" type="submit">
-            {{ 'Aktiv' if category.enabled else 'Inaktiv' }}
+            {{ '● Aktiv' if category.enabled else '○ Inaktiv' }}
         </button>
     </form>
 </div>
@@ -28,14 +31,20 @@
 <h2>Eigene Watchlist-Einträge</h2>
 {% if entries %}
     {% for entry in entries %}
-    <div class="item-row">
+    <div class="item-row {{ '' if entry.enabled else 'inactive' }}">
         <div class="item-main">
             <div class="item-title">{{ entry.label }}</div>
             <div class="item-sub">{{ match_type_labels.get(entry.match_type, entry.match_type) }}: {{ entry.pattern }}</div>
         </div>
+        <form method="post" action="/watchlist/{{ entry.id }}/toggle">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
+            <button class="toggle-btn {{ 'active' if entry.enabled else '' }}" type="submit">
+                {{ '● Aktiv' if entry.enabled else '○ Inaktiv' }}
+            </button>
+        </form>
         <form method="post" action="/watchlist/{{ entry.id }}/delete">
             <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
-            <button class="link-button" type="submit">Löschen</button>
+            <button class="icon-btn danger" type="submit" title="Eintrag löschen" aria-label="Eintrag löschen">🗑</button>
         </form>
     </div>
     {% endfor %}

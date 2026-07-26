@@ -787,6 +787,31 @@ def test_process_state_matches_custom_watchlist_entry_directly(test_engine, monk
         assert matches_[0].category_key is None
 
 
+def test_poll_job_skips_disabled_watchlist_entries(test_engine, monkeypatch):
+    monkeypatch.setattr(scheduler.aircraft_db, "lookup", lambda icao24: None)
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        user = User(email="poll-disabled@example.com", password_hash="x")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        session.add(AirportWatch(user_id=user.id, airport_id=airport.id, radius_km=20))
+        # A320 matches no built-in category, so this isolates the
+        # enabled-filter on the watchlist query itself.
+        session.add(
+            WatchlistEntry(user_id=user.id, label="A320 Fan", match_type="typecode", pattern="A320", enabled=False)
+        )
+        session.commit()
+
+    state = StateVector(icao24="abc123", callsign="OLD1", on_ground=True, typecode="A320")
+    monkeypatch.setattr(scheduler.flight_sources, "fetch_merged_states", lambda *a, **k: [state])
+
+    scheduler.poll_job()
+
+    with Session(test_engine) as session:
+        assert session.exec(select(Sighting)).all() == []
+
+
 def test_poll_job_returns_early_without_any_watches(test_engine, monkeypatch):
     called = []
     monkeypatch.setattr(scheduler.flight_sources, "fetch_merged_states", lambda *a, **k: called.append(1) or [])
