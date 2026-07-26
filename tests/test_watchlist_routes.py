@@ -24,17 +24,13 @@ def test_toggle_unknown_category_is_a_noop(client):
     assert resp.headers["location"] == "/watchlist"
 
 
-def test_builtin_category_shows_its_criterion(client):
+def test_builtin_categories_do_not_show_criterion_or_pattern(client):
+    # Criterion and pattern are documented in docs/watchlist.md; showing them
+    # again here was redundant, so the app only shows label + description.
     register(client, "alice@example.com")
     page = client.get("/watchlist")
-    assert "Callsign-Präfix: GAF" in page.text
-
-
-def test_builtin_category_with_empty_pattern_shows_criterion_without_trailing_colon(client):
-    register(client, "alice@example.com")
-    page = client.get("/watchlist")
-    assert "adsb.lol-Flag (militärisch/PIA/LADD)" in page.text
-    assert "adsb.lol-Flag (militärisch/PIA/LADD):" not in page.text
+    assert "Callsign-Präfix: GAF" not in page.text
+    assert "adsb.lol-Flag (militärisch/PIA/LADD)" not in page.text
 
 
 def test_add_watchlist_entry(client):
