@@ -18,6 +18,10 @@
             Poll-Intervall (Sekunden)
             <input type="number" min="30" name="poll_interval_seconds" value="{{ settings.poll_interval_seconds }}" />
         </label>
+        <label>
+            Backup-Intervall (Stunden)
+            <input type="number" min="1" name="backup_interval_hours" value="{{ settings.backup_interval_hours }}" />
+        </label>
         <button class="primary" type="submit">Speichern</button>
     </form>
     <p class="item-sub">
@@ -75,5 +79,25 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
         <button class="secondary" type="submit">Jetzt aktualisieren</button>
     </form>
+</section>
+
+<section class="settings-section">
+    <h2>Backups</h2>
+    <form method="post" action="/admin/backup-now">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
+        <button class="secondary" type="submit">Jetzt sichern</button>
+    </form>
+    {% if backups %}
+    <ul class="backup-list">
+        {% for b in backups %}
+        <li>
+            <a href="/admin/backups/{{ b.name }}">{{ b.name }}</a>
+            <span class="item-sub">{{ b.size|filesizeformat }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">Noch keine Backups vorhanden.</p>
+    {% endif %}
 </section>
 {% endblock %}
