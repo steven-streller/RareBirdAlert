@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.12](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.11...v0.1.12) (2026-07-26)
+
+
+### Features
+
+* show category criteria and let watchlist entries be paused ([#53](https://github.com/steven-streller/RareBirdAlert/issues/53)) ([239cebf](https://github.com/steven-streller/RareBirdAlert/commit/239cebf57e289763a3655a1c5b0b4a2d43ac6ff4))
+
+
+### Bug Fixes
+
+* drop adsbdb route enrichment when it disagrees with the sighted airport ([#51](https://github.com/steven-streller/RareBirdAlert/issues/51)) ([b8438b7](https://github.com/steven-streller/RareBirdAlert/commit/b8438b7452f77705a55f617be350adb50200cd31))
+
 ## [0.1.11](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.10...v0.1.11) (2026-07-26)
 
 
