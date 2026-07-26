@@ -195,6 +195,37 @@ def _ensure_sighting_photo_columns() -> None:
         conn.commit()
 
 
+def _ensure_sighting_event_type_column() -> None:
+    """Same rationale as _ensure_sighting_route_columns - event_type (see
+    app/models.py::Sighting) was added after the initial release to
+    distinguish approach/landing/takeoff_roll/departure Sightings.
+    """
+    with engine.connect() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(sighting)").fetchall()}
+        if not columns:
+            return
+        if "event_type" not in columns:
+            conn.exec_driver_sql("ALTER TABLE sighting ADD COLUMN event_type TEXT NOT NULL DEFAULT 'landing'")
+        conn.commit()
+
+
+def _ensure_track_state_notified_columns() -> None:
+    """Same rationale as _ensure_sighting_route_columns - the one-shot flags
+    on AircraftTrackState (see app/models.py) that gate the new approach/
+    takeoff_roll events were added after the initial release.
+    """
+    with engine.connect() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(aircrafttrackstate)").fetchall()}
+        if not columns:
+            return
+        for column in ("approach_notified", "rolling_notified"):
+            if column not in columns:
+                conn.exec_driver_sql(f"ALTER TABLE aircrafttrackstate ADD COLUMN {column} BOOLEAN NOT NULL DEFAULT 0")
+        if "last_ground_speed_kt" not in columns:
+            conn.exec_driver_sql("ALTER TABLE aircrafttrackstate ADD COLUMN last_ground_speed_kt REAL")
+        conn.commit()
+
+
 def _ensure_admin_exists(session: Session) -> None:
     """Guarantees exactly one admin exists after every startup.
 
@@ -231,6 +262,8 @@ def init_db() -> None:
     _ensure_user_is_admin_column()
     _ensure_sighting_route_columns()
     _ensure_sighting_photo_columns()
+    _ensure_sighting_event_type_column()
+    _ensure_track_state_notified_columns()
     with Session(engine) as session:
         for category in CATEGORIES:
             existing = session.exec(

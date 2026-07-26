@@ -53,9 +53,33 @@ den bekannten Beluga-XL-Registrierungen:
 
 ## Wie ein Treffer entsteht
 
-Ein Landeereignis wird gegen **alle** aktuell aktiven eingebauten Kategorien
+Ein Flugereignis wird gegen **alle** aktuell aktiven eingebauten Kategorien
 und **alle** Watchlist-Einträge aller Nutzer geprüft (nicht nur deine
 eigenen) – das entscheidet, ob überhaupt eine Sichtung gespeichert wird.
 Benachrichtigt wirst du danach nur, wenn der Treffer zu einer bei dir
 aktivierten Kategorie oder einem deiner eigenen Einträge gehört, und nur für
 Flughäfen, die du selbst beobachtest.
+
+## Vier Zeitpunkte pro Vorgang
+
+Es wird nicht nur bei der eigentlichen Landung bzw. dem Start geprüft,
+sondern zusätzlich schon vorher, sobald das möglich ist:
+
+| Ereignis | Zeitpunkt |
+|---|---|
+| Anflug | Flugzeug ist noch in der Luft, aber sinkt deutlich in der Nähe des Flughafens |
+| Landung | Flugzeug hat gerade Bodenkontakt bekommen |
+| Startrollen | Flugzeug rollt am Boden bereits merklich schnell (beschleunigt) |
+| Start | Flugzeug hat gerade abgehoben |
+
+Pro Vorgang können also bis zu zwei Benachrichtigungen kommen (z. B. erst
+"Anflug", kurz danach "Landung") – für dieselbe Maschine, denselben
+Flughafen und denselben Treffergrund. "Anflug" und "Startrollen" sind
+Heuristiken (Sinkrate bzw. Bodengeschwindigkeit über einem festen
+Schwellwert) statt einer exakten Positionsbestimmung, weil dafür keine
+Flughafenhöhe im System hinterlegt ist – gelegentliche Fehltreffer oder ein
+knapp verpasster Anflug (z. B. bei sehr flachem Sinkflug) sind möglich.
+Zeitlich sind auch diese früheren Ereignisse durch das Poll-Intervall
+gedeckelt (siehe [Konfiguration](configuration.md)) – bei einer Maschine, die
+sehr kurz vor der Landung erst zu sinken beginnt, kommt "Anflug" im
+Zweifel erst kurz vor oder sogar gleichzeitig mit "Landung".

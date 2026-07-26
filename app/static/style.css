@@ -140,6 +140,16 @@ h2 { font-size: 1.1rem; color: var(--text-dim); margin-top: 2rem; }
     white-space: nowrap;
 }
 
+.event-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 5px;
+    background: var(--border);
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
 .callsign { font-weight: 600; }
 .aircraft-type { color: var(--text-dim); font-size: 0.9rem; }
 .match-label { color: var(--text-dim); font-size: 0.8rem; }

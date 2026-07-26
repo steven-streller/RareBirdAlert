@@ -58,6 +58,9 @@ def _merge(a: StateVector, b: StateVector) -> StateVector:
         flagged_military=a.flagged_military or b.flagged_military,
         flagged_pia=a.flagged_pia or b.flagged_pia,
         flagged_ladd=a.flagged_ladd or b.flagged_ladd,
+        # is-not-None fallback, not `or` - 0 kt / 0 fpm is a valid reading.
+        ground_speed_kt=a.ground_speed_kt if a.ground_speed_kt is not None else b.ground_speed_kt,
+        vertical_rate_fpm=a.vertical_rate_fpm if a.vertical_rate_fpm is not None else b.vertical_rate_fpm,
     )
 
 

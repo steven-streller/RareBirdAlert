@@ -70,6 +70,17 @@ class AircraftTrackState(SQLModel, table=True):
     airport_id: int = Field(foreign_key="airport.id", index=True)
     on_ground: bool = False
     last_seen_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    # One-shot flags so an "approach"/"takeoff_roll" Sighting fires only once
+    # per event instead of on every poll tick while the aircraft keeps
+    # sinking/accelerating - reset once the matching landing/departure
+    # actually happens (see app/scheduler.py::_process_state).
+    approach_notified: bool = False
+    rolling_notified: bool = False
+    # Last observed ground speed while on the ground - lets the scheduler
+    # tell "accelerating for takeoff" (crosses the roll threshold going up)
+    # apart from "decelerating after just landing" (starts above threshold,
+    # only ever goes down), which a single instantaneous reading can't do.
+    last_ground_speed_kt: float | None = None
 
 
 class AircraftMetadata(SQLModel, table=True):
@@ -100,6 +111,10 @@ class Sighting(SQLModel, table=True):
     typecode: Optional[str] = None
     operator: Optional[str] = None
     landed_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    # "approach" | "landing" | "takeoff_roll" | "departure" - default keeps
+    # pre-existing rows (all created before this field existed) valid, since
+    # they were all landings by definition.
+    event_type: str = Field(default="landing", index=True)
     # Best-effort route enrichment from adsbdb.com, looked up by callsign at
     # match time (see app/adsbdb.py) - None when the callsign is missing,
     # unknown to adsbdb, or the lookup failed.

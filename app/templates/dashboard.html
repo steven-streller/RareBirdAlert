@@ -7,6 +7,12 @@
 <p class="empty">Du beobachtest noch keine Flughäfen. Lege welche unter <a href="/airports">Flughäfen</a> an.</p>
 {% endif %}
 
+{% set event_badges = {
+    'approach': '↘ Anflug',
+    'landing': '🛬 Landung',
+    'takeoff_roll': '↗ Rollt zum Start',
+    'departure': '🛫 Start',
+} %}
 {% if day_groups %}
     {% for day_label, rows in day_groups %}
     <h2 class="day-heading">{{ day_label }}</h2>
@@ -26,6 +32,7 @@
                 {% endif %}
                 <div class="timeline-head">
                     <span class="airport-tag">{{ row.airport.icao if row.airport else '?' }}</span>
+                    <span class="event-badge">{{ event_badges.get(row.sighting.event_type, event_badges['landing']) }}</span>
                     <span class="callsign">{{ row.sighting.callsign or row.sighting.icao24 }}</span>
                 </div>
                 <div class="aircraft-type">

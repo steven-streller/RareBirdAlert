@@ -26,3 +26,10 @@ class StateVector:
     flagged_military: bool = False
     flagged_pia: bool = False
     flagged_ladd: bool = False
+    # Used by app/scheduler.py to detect an approach (sinking, still
+    # airborne) or a takeoff roll (accelerating, still on the ground) ahead
+    # of the actual on_ground transition. Units match the readsb/tar1090
+    # JSON format (knots, feet/min) since two of the three sources use it
+    # natively; app/opensky.py converts from OpenSky's m/s.
+    ground_speed_kt: float | None = None
+    vertical_rate_fpm: float | None = None
