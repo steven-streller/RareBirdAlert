@@ -17,6 +17,7 @@ Weboberfläche selbst.
 | `RAREBIRDALERT_BACKUP_DIR` | `/app/data/backups` | Zielverzeichnis für automatische Datenbank-Backups. Siehe unten. |
 | `RAREBIRDALERT_BACKUP_KEEP` | `7` | Anzahl der aufzubewahrenden Backups (älteste werden nach jedem neuen Backup gelöscht). `0` deaktiviert die Rotation - dann bleiben alle Backups erhalten. |
 | `LOG_FORMAT` | `text` | Auf `json` setzen für strukturiertes JSON-Logging (auch für Uvicorn/APScheduler). Siehe [Monitoring](monitoring.md). |
+| `LOG_LEVEL` | `INFO` | `DEBUG`, `WARNING`, `ERROR` oder `CRITICAL`. Ungültige Werte fallen still auf `INFO` zurück. |
 
 ## Admin-Account
 

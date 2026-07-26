@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from app.logging_config import JSONFormatter, configure_logging
+from app.logging_config import JSONFormatter, _resolve_log_level, configure_logging
 
 
 def _make_record(msg="hello", level=logging.INFO, exc_info=None, extra=None):
@@ -116,3 +116,44 @@ def test_configure_logging_defers_uvicorn_loggers_to_the_root_handler(monkeypatc
         logger = logging.getLogger(name)
         assert logger.handlers == []
         assert logger.propagate is True
+
+
+def test_resolve_log_level_accepts_known_level_names():
+    assert _resolve_log_level("DEBUG") == logging.DEBUG
+    assert _resolve_log_level("info") == logging.INFO
+    assert _resolve_log_level("Warning") == logging.WARNING
+    assert _resolve_log_level("ERROR") == logging.ERROR
+    assert _resolve_log_level("CRITICAL") == logging.CRITICAL
+
+
+def test_resolve_log_level_falls_back_to_info_for_unknown_or_empty_values():
+    assert _resolve_log_level("not-a-real-level") == logging.INFO
+    assert _resolve_log_level("") == logging.INFO
+    assert _resolve_log_level(None) == logging.INFO
+
+
+def test_configure_logging_applies_the_requested_level(monkeypatch, restore_logging_state):
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    configure_logging()
+
+    assert logging.getLogger().level == logging.DEBUG
+
+
+def test_configure_logging_defaults_to_info_level(monkeypatch, restore_logging_state):
+    monkeypatch.delenv("LOG_LEVEL", raising=False)
+    configure_logging()
+
+    assert logging.getLogger().level == logging.INFO
+
+
+def test_configure_logging_applies_the_level_to_uvicorn_loggers_too(monkeypatch, restore_logging_state):
+    # Regression test: uvicorn sets an explicit level on its own loggers
+    # before app.main is even imported - an explicit level on a logger wins
+    # over the root logger's regardless of propagation, so LOG_LEVEL=WARNING
+    # would otherwise silently leave uvicorn's own INFO lines showing
+    # through. Caught by a live container run, not by reasoning alone.
+    monkeypatch.setenv("LOG_LEVEL", "WARNING")
+    configure_logging()
+
+    for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+        assert logging.getLogger(name).level == logging.WARNING

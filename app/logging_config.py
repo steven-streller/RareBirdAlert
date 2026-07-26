@@ -66,12 +66,28 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(payload, ensure_ascii=False, default=str)
 
 
+_VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+
+
+def _resolve_log_level(value: str) -> int:
+    """Falls back to INFO for anything unset or unrecognized - a typo'd env
+    var should never crash startup, just silently keep the default."""
+    name = (value or "INFO").strip().upper()
+    if name not in _VALID_LOG_LEVELS:
+        name = "INFO"
+    return getattr(logging, name)
+
+
 def configure_logging() -> None:
     """LOG_FORMAT=json switches every log line (the app's own loggers, plus
     uvicorn's access/error logs and APScheduler's) to structured JSON.
     Defaults to a plain-text format, unchanged in spirit from before.
+
+    LOG_LEVEL (default INFO) controls verbosity the same way, for e.g.
+    DEBUG during troubleshooting or WARNING to cut down on noise.
     """
     log_format = os.environ.get("LOG_FORMAT", "text").strip().lower()
+    log_level = _resolve_log_level(os.environ.get("LOG_LEVEL", "INFO"))
     handler = logging.StreamHandler()
     if log_format == "json":
         handler.setFormatter(JSONFormatter())
@@ -80,16 +96,22 @@ def configure_logging() -> None:
 
     root = logging.getLogger()
     root.handlers = [handler]
-    root.setLevel(logging.INFO)
+    root.setLevel(log_level)
 
     # Uvicorn configures its own "uvicorn"/"uvicorn.access"/"uvicorn.error"
-    # loggers - with their own handlers and propagate=False - before this
-    # module is even imported (it sets that up while building its Config,
-    # which happens before loading the ASGI app string). Clearing their
-    # handlers and re-enabling propagation defers to the root handler above,
-    # so uvicorn's access/error logs end up in the same format as everything
-    # else instead of uvicorn's own colored console formatter.
+    # loggers - with their own handlers, an explicit level, and
+    # propagate=False - before this module is even imported (it sets that up
+    # while building its Config, which happens before loading the ASGI app
+    # string). Clearing their handlers and re-enabling propagation defers to
+    # the root handler above, so uvicorn's access/error logs end up in the
+    # same format as everything else instead of uvicorn's own colored
+    # console formatter. Setting their level explicitly matters too - an
+    # explicit level on a logger always wins over the root's, regardless of
+    # propagate, so LOG_LEVEL=WARNING would otherwise still leave uvicorn's
+    # own INFO startup/access lines showing through (verified against a
+    # running container, not assumed).
     for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
         uvicorn_logger = logging.getLogger(name)
         uvicorn_logger.handlers = []
         uvicorn_logger.propagate = True
+        uvicorn_logger.setLevel(log_level)
