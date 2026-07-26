@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.7](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.6...v0.1.7) (2026-07-26)
+
+
+### Features
+
+* add a Prometheus /metrics endpoint ([#35](https://github.com/steven-streller/RareBirdAlert/issues/35)) ([db2790c](https://github.com/steven-streller/RareBirdAlert/commit/db2790c025bc26ef3fa80603ed3722a04f2b4dd6))
+* add automatic SQLite database backups ([#36](https://github.com/steven-streller/RareBirdAlert/issues/36)) ([1d8092e](https://github.com/steven-streller/RareBirdAlert/commit/1d8092e2075f312b1120176195fad975cbc4257b))
+* add CSRF protection to all state-changing routes ([#30](https://github.com/steven-streller/RareBirdAlert/issues/30)) ([262875b](https://github.com/steven-streller/RareBirdAlert/commit/262875b3ef7d8d6acb3eca8343d8c3f0b4cfbede))
+* add per-user quiet hours for notifications ([#33](https://github.com/steven-streller/RareBirdAlert/issues/33)) ([1daa3ce](https://github.com/steven-streller/RareBirdAlert/commit/1daa3ce55f6ea1b094e896d75fd4c11bbd0fab85))
+* add rate limiting to the login endpoint ([#32](https://github.com/steven-streller/RareBirdAlert/issues/32)) ([43d066b](https://github.com/steven-streller/RareBirdAlert/commit/43d066bb7330b36b9d2e9f8fed61665531e59d10))
+* add Web Push as a notification channel ([#38](https://github.com/steven-streller/RareBirdAlert/issues/38)) ([fae6f81](https://github.com/steven-streller/RareBirdAlert/commit/fae6f811ba1253635d8b40d4a6aa8d1017823090))
+* enrich matched sightings with an aircraft photo via planespotters.net ([#34](https://github.com/steven-streller/RareBirdAlert/issues/34)) ([42791ba](https://github.com/steven-streller/RareBirdAlert/commit/42791ba6bdce2e343d764c2bd793444ef8f2b707))
+
+
+### Bug Fixes
+
+* dark-style the quiet hours time inputs ([#39](https://github.com/steven-streller/RareBirdAlert/issues/39)) ([8f97efe](https://github.com/steven-streller/RareBirdAlert/commit/8f97efe88961c6ee2e1d4e046304f576c0793427))
+* gitignore the default local backup directory ([#37](https://github.com/steven-streller/RareBirdAlert/issues/37)) ([b2fced2](https://github.com/steven-streller/RareBirdAlert/commit/b2fced2605fccd3bb73f3c6dd4afec6f2bf4d4ae))
+
 ## [0.1.6](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.5...v0.1.6) (2026-07-25)
 
 
