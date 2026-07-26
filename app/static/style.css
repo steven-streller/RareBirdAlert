@@ -1,4 +1,8 @@
 :root {
+    /* This app only ships a dark theme - tells the browser to render native
+       controls (the time-input clock icon, select dropdown arrows, etc.)
+       with dark UA styling instead of defaulting to a light one that clashes. */
+    color-scheme: dark;
     --bg: #10141c;
     --bg-card: #181e2a;
     --border: #2a3040;
@@ -258,6 +262,7 @@ form.settings-form input[type=text],
 form.settings-form input[type=email],
 form.settings-form input[type=password],
 form.settings-form input[type=number],
+form.settings-form input[type=time],
 form.settings-form select {
     background: var(--bg);
     border: 1px solid var(--border);
