@@ -19,7 +19,7 @@
     <div class="timeline">
         {% for row in rows %}
         <div class="timeline-row">
-            <div class="timeline-time">{{ row.sighting.landed_at.strftime('%H:%M') }}</div>
+            <div class="timeline-time">{{ row.sighting.landed_at.strftime('%H:%M') }} UTC</div>
             <div class="timeline-content">
                 {% if row.sighting.photo_thumbnail_url %}
                 <a href="{{ row.sighting.photo_link }}" target="_blank" rel="noopener">
