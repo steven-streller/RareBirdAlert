@@ -97,6 +97,8 @@ def fetch_states(cfg: dict, lat: float, lon: float, radius_km: float) -> list[St
         if not icao24:
             continue
         callsign = (row[1] or "").strip() or None
+        velocity_ms = row[9]
+        vertical_rate_ms = row[11]
         states.append(
             StateVector(
                 icao24=icao24.strip().lower(),
@@ -104,6 +106,10 @@ def fetch_states(cfg: dict, lat: float, lon: float, radius_km: float) -> list[St
                 on_ground=bool(row[8]),
                 lat=row[6],
                 lon=row[5],
+                # OpenSky reports m/s - convert to knots/ft-min to match the
+                # unit convention the readsb-based sources use natively.
+                ground_speed_kt=velocity_ms * 1.94384 if velocity_ms is not None else None,
+                vertical_rate_fpm=vertical_rate_ms * 196.850 if vertical_rate_ms is not None else None,
             )
         )
     return states

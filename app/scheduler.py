@@ -32,6 +32,37 @@ scheduler = BackgroundScheduler()
 # instead of being suppressed as "already on the ground".
 STALE_TRACK_SECONDS = 6 * 3600
 
+# Heuristic thresholds for the two "early" events below. There's no airport
+# elevation anywhere in the data model (app/data/airports.csv doesn't carry
+# one), so "height above ground" isn't computable - instead we lean on the
+# fact that app.flight_sources.fetch_merged_states already scopes queries to
+# a radius around the airport, and use vertical rate / ground speed as
+# proxies for "this is an approach/takeoff, not cruise traffic passing by".
+# Deliberately fixed, not user-configurable - tune here if they misfire.
+APPROACH_DESCENT_RATE_FPM = -500
+TAKEOFF_ROLL_SPEED_KT = 40
+
+EVENT_LOG_VERBS = {
+    "approach": "is on approach to",
+    "landing": "landed at",
+    "takeoff_roll": "is rolling for takeoff at",
+    "departure": "departed",
+}
+
+# German copy for the user-facing notification (see notify_check_job below).
+EVENT_TITLE_PREFIXES = {
+    "approach": "Anflug",
+    "landing": "Landung",
+    "takeoff_roll": "Startrollen",
+    "departure": "Start",
+}
+EVENT_MESSAGE_PHRASES = {
+    "approach": "befindet sich im Landeanflug auf {airport}",
+    "landing": "ist in {airport} gelandet",
+    "takeoff_roll": "rollt in {airport} zum Start",
+    "departure": "ist in {airport} gestartet",
+}
+
 
 def _process_state(
     session: Session,
@@ -47,16 +78,63 @@ def _process_state(
     ).first()
 
     was_on_ground = track.on_ground if track else False
+    previous_ground_speed_kt = track.last_ground_speed_kt if track else None
+    approach_already_notified = track.approach_notified if track else False
+    rolling_already_notified = track.rolling_notified if track else False
+
     landed_event = state.on_ground and not was_on_ground
+    departed_event = was_on_ground and not state.on_ground
+    approach_event = (
+        not state.on_ground
+        and not approach_already_notified
+        and state.vertical_rate_fpm is not None
+        and state.vertical_rate_fpm <= APPROACH_DESCENT_RATE_FPM
+    )
+    takeoff_roll_event = (
+        state.on_ground
+        and not landed_event  # a fast landing rollout isn't a takeoff roll
+        and not rolling_already_notified
+        and state.ground_speed_kt is not None
+        and state.ground_speed_kt >= TAKEOFF_ROLL_SPEED_KT
+        # Must cross the threshold while accelerating - a plane that just
+        # landed also reads "on ground and fast", but only ever decelerates,
+        # so it never crosses upward like an aircraft accelerating for takeoff.
+        and previous_ground_speed_kt is not None
+        and previous_ground_speed_kt < TAKEOFF_ROLL_SPEED_KT
+    )
 
     if track:
         track.on_ground = state.on_ground
         track.last_seen_at = datetime.utcnow()
+        track.last_ground_speed_kt = state.ground_speed_kt
+        # Reset each one-shot flag once its "finished" counterpart happens,
+        # so a later approach/takeoff roll can notify again.
+        track.approach_notified = approach_event if landed_event else (track.approach_notified or approach_event)
+        track.rolling_notified = takeoff_roll_event if departed_event else (
+            track.rolling_notified or takeoff_roll_event
+        )
         session.add(track)
     else:
-        session.add(AircraftTrackState(icao24=state.icao24, airport_id=airport.id, on_ground=state.on_ground))
+        session.add(
+            AircraftTrackState(
+                icao24=state.icao24,
+                airport_id=airport.id,
+                on_ground=state.on_ground,
+                last_ground_speed_kt=state.ground_speed_kt,
+                approach_notified=approach_event,
+                rolling_notified=takeoff_roll_event,
+            )
+        )
 
-    if not landed_event:
+    if landed_event:
+        event_type = "landing"
+    elif departed_event:
+        event_type = "departure"
+    elif approach_event:
+        event_type = "approach"
+    elif takeoff_roll_event:
+        event_type = "takeoff_roll"
+    else:
         return
 
     # Live sources (e.g. adsb.lol) sometimes provide type/registration
@@ -99,6 +177,7 @@ def _process_state(
         registration=aircraft.registration,
         typecode=aircraft.typecode,
         operator=aircraft.operator,
+        event_type=event_type,
         route_origin_icao=route.get("origin_icao") if route else None,
         route_origin_name=route.get("origin_name") if route else None,
         route_destination_icao=route.get("destination_icao") if route else None,
@@ -121,9 +200,10 @@ def _process_state(
             )
         )
     logger.info(
-        "Sighting: %s (%s) landed at %s - matched %s",
+        "Sighting: %s (%s) %s %s - matched %s",
         state.callsign or state.icao24,
         aircraft.typecode or "unknown type",
+        EVENT_LOG_VERBS[event_type],
         airport.icao,
         [label for _, _, label in match_hits],
     )
@@ -217,12 +297,17 @@ def notify_check_job() -> None:
                     continue
 
                 airport = airports.get(sighting.airport_id)
-                title = f"{sighting.typecode or 'Besonderes Flugzeug'} in {airport.icao if airport else '?'}"
+                title = (
+                    f"{EVENT_TITLE_PREFIXES[sighting.event_type]}: "
+                    f"{sighting.typecode or 'Besonderes Flugzeug'} in {airport.icao if airport else '?'}"
+                )
+                event_phrase = EVENT_MESSAGE_PHRASES[sighting.event_type].format(
+                    airport=airport.name if airport else sighting.airport_id
+                )
                 message = (
                     f"{sighting.callsign or sighting.icao24} "
                     f"({sighting.typecode or 'unbekannter Typ'}"
-                    f"{', ' + sighting.operator if sighting.operator else ''}) ist in "
-                    f"{airport.name if airport else sighting.airport_id} gelandet. "
+                    f"{', ' + sighting.operator if sighting.operator else ''}) {event_phrase}. "
                     f"Erkannt als: {', '.join(m.label for m in relevant)}"
                 )
                 if sighting.route_origin_icao or sighting.route_destination_icao:

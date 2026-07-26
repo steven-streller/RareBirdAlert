@@ -19,6 +19,23 @@ Der Reihe nach prüfen:
    [Datenquelle](data-sources.md) – bei Rate-Limit-Meldungen im Log das
    Poll-Intervall erhöhen oder eigenen OpenSky-Account einrichten.
 
+## Die Anflug-/Startrollen-Benachrichtigung kommt spät, doppelt oder gar nicht
+
+"Anflug" und "Startrollen" (siehe [Watchlist](watchlist.md#vier-zeitpunkte-pro-vorgang))
+sind Heuristiken auf Basis von Sinkrate bzw. Bodengeschwindigkeit, keine
+exakte Positionsbestimmung - RareBirdAlert kennt die Höhe des Flughafens
+nicht. Drei Dinge, die dabei auffallen können:
+
+- Die Meldung kommt erst kurz vor oder gleichzeitig mit "Landung"/"Start":
+  normal bei kurzem Poll-Intervall und einem Flugzeug, das erst spät zu
+  sinken/beschleunigen beginnt.
+- Zwei Meldungen für denselben Vorgang (z. B. "Anflug" und wenig später
+  "Landung"): so gedacht - beide Ereignisse feuern unabhängig voneinander,
+  siehe Watchlist-Dokumentation.
+- Gar keine "Anflug"-Meldung, obwohl gelandet wurde: die Sinkrate war beim
+  Poll-Zeitpunkt nie stark genug erfasst, z. B. bei einem sehr flachen
+  Anflug oder einem großzügigen Poll-Intervall.
+
 ## Ein bestimmtes Flugzeug wird nicht erkannt
 
 - Prüfen, ob OpenSky es überhaupt sieht: manche Militärmaschinen fliegen mit

@@ -11,6 +11,13 @@ DBFLAG_PIA = 2
 DBFLAG_LADD = 4
 
 
+def _safe_float(value) -> float | None:
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 def parse_aircraft_list(data: dict) -> list[StateVector]:
     states = []
     for item in data.get("ac") or []:
@@ -30,6 +37,8 @@ def parse_aircraft_list(data: dict) -> list[StateVector]:
                 flagged_military=bool(db_flags & DBFLAG_MILITARY),
                 flagged_pia=bool(db_flags & DBFLAG_PIA),
                 flagged_ladd=bool(db_flags & DBFLAG_LADD),
+                ground_speed_kt=_safe_float(item.get("gs")),
+                vertical_rate_fpm=_safe_float(item.get("baro_rate")),
             )
         )
     return states

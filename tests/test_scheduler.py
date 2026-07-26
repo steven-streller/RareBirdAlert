@@ -88,6 +88,9 @@ def test_process_state_does_not_retrigger_while_parked(test_engine, monkeypatch)
 
 
 def test_process_state_retriggers_after_takeoff_and_landing_again(test_engine, monkeypatch):
+    """The airborne transition in the middle is now its own "departure"
+    event (not just a silent state update) - matching aircraft get a
+    Sighting for it just like for landing/approach/takeoff_roll."""
     monkeypatch.setattr(
         scheduler.aircraft_db, "lookup", lambda icao24: {"typecode": "EUFI", "operator": "Luftwaffe"}
     )
@@ -107,7 +110,112 @@ def test_process_state_retriggers_after_takeoff_and_landing_again(test_engine, m
         scheduler._process_state(session, airport, landed, [category], [])
         session.commit()
 
-        assert len(session.exec(select(Sighting)).all()) == 2
+        sightings = session.exec(select(Sighting).order_by(Sighting.id)).all()
+        assert [s.event_type for s in sightings] == ["landing", "departure", "landing"]
+
+
+def test_process_state_creates_sighting_on_approach(test_engine, monkeypatch):
+    """A strong sink rate while still airborne is a heads-up before the
+    actual landing - no airport elevation is needed since fetch_merged_states
+    already scopes the query to aircraft near the airport."""
+    monkeypatch.setattr(
+        scheduler.aircraft_db, "lookup", lambda icao24: {"typecode": "EUFI", "operator": "Luftwaffe"}
+    )
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        category = session.exec(
+            select(AircraftCategory).where(AircraftCategory.key == "eurofighter_typhoon")
+        ).first()
+
+        state = StateVector(
+            icao24="abc123", callsign="GAF123", on_ground=False, lat=50.0, lon=8.5, vertical_rate_fpm=-1200
+        )
+        scheduler._process_state(session, airport, state, [category], [])
+        session.commit()
+
+        sightings = session.exec(select(Sighting)).all()
+        assert len(sightings) == 1
+        assert sightings[0].event_type == "approach"
+
+
+def test_process_state_does_not_retrigger_approach_while_still_descending(test_engine, monkeypatch):
+    monkeypatch.setattr(scheduler.aircraft_db, "lookup", lambda icao24: {"typecode": "EUFI"})
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        category = session.exec(
+            select(AircraftCategory).where(AircraftCategory.key == "eurofighter_typhoon")
+        ).first()
+
+        state = StateVector(
+            icao24="abc123", callsign="GAF123", on_ground=False, lat=50.0, lon=8.5, vertical_rate_fpm=-1200
+        )
+        scheduler._process_state(session, airport, state, [category], [])
+        session.commit()
+        scheduler._process_state(session, airport, state, [category], [])
+        session.commit()
+
+        assert len(session.exec(select(Sighting)).all()) == 1
+
+
+def test_process_state_creates_takeoff_roll_sighting_when_accelerating(test_engine, monkeypatch):
+    """Ground speed crossing the roll threshold while already on the ground
+    (not the instant of touchdown) signals an aircraft accelerating for
+    takeoff, ahead of the actual airborne transition."""
+    monkeypatch.setattr(
+        scheduler.aircraft_db, "lookup", lambda icao24: {"typecode": "EUFI", "operator": "Luftwaffe"}
+    )
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        category = session.exec(
+            select(AircraftCategory).where(AircraftCategory.key == "eurofighter_typhoon")
+        ).first()
+
+        # Already parked/taxiing on the ground - established directly rather
+        # than via _process_state, so this setup doesn't itself create a
+        # "landing" Sighting for a first-ever sighting.
+        session.add(
+            AircraftTrackState(icao24="abc123", airport_id=airport.id, on_ground=True, last_ground_speed_kt=10)
+        )
+        session.commit()
+
+        rolling = StateVector(
+            icao24="abc123", callsign="GAF123", on_ground=True, lat=50.0, lon=8.5, ground_speed_kt=60
+        )
+        scheduler._process_state(session, airport, rolling, [category], [])
+        session.commit()
+
+        sightings = session.exec(select(Sighting)).all()
+        assert len(sightings) == 1
+        assert sightings[0].event_type == "takeoff_roll"
+
+
+def test_process_state_landing_rollout_does_not_trigger_takeoff_roll(test_engine, monkeypatch):
+    """A fast landing rollout also reads as "on ground and fast" - must not
+    be mistaken for a takeoff roll just because it's above the speed
+    threshold; only an upward crossing of the threshold counts as one."""
+    monkeypatch.setattr(
+        scheduler.aircraft_db, "lookup", lambda icao24: {"typecode": "EUFI", "operator": "Luftwaffe"}
+    )
+    with Session(test_engine) as session:
+        airport = _make_airport(session)
+        category = session.exec(
+            select(AircraftCategory).where(AircraftCategory.key == "eurofighter_typhoon")
+        ).first()
+
+        landed_fast = StateVector(
+            icao24="abc123", callsign="GAF123", on_ground=True, lat=50.0, lon=8.5, ground_speed_kt=90
+        )
+        scheduler._process_state(session, airport, landed_fast, [category], [])
+        session.commit()
+
+        still_decelerating = StateVector(
+            icao24="abc123", callsign="GAF123", on_ground=True, lat=50.0, lon=8.5, ground_speed_kt=70
+        )
+        scheduler._process_state(session, airport, still_decelerating, [category], [])
+        session.commit()
+
+        sightings = session.exec(select(Sighting).order_by(Sighting.id)).all()
+        assert [s.event_type for s in sightings] == ["landing"]
 
 
 def test_process_state_without_any_match_creates_no_sighting(test_engine, monkeypatch):
