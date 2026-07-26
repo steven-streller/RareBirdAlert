@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.11](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.10...v0.1.11) (2026-07-26)
+
+
+### Features
+
+* notify on approach and takeoff roll, not just landing/departure ([#49](https://github.com/steven-streller/RareBirdAlert/issues/49)) ([839bedf](https://github.com/steven-streller/RareBirdAlert/commit/839bedf194600d28729eb4bbee8567db0bc9504c))
+
 ## [0.1.10](https://github.com/steven-streller/RareBirdAlert/compare/v0.1.9...v0.1.10) (2026-07-26)
 
 
