@@ -2,7 +2,25 @@
 
 RareBirdAlert exponiert Prometheus-Metriken unter `/metrics` - nützlich, um
 zu sehen, ob der Poll-Zyklus tatsächlich läuft und ob Benachrichtigungen
-ankommen, ohne dafür in die Logs schauen zu müssen.
+ankommen, ohne dafür in die Logs schauen zu müssen. Für den Fall, dass doch
+in die Logs geschaut werden muss, gibt es strukturiertes JSON-Logging.
+
+## Strukturiertes Logging
+
+Standardmäßig wird als Text geloggt (`ZEIT LEVEL LOGGER: NACHRICHT`) - für
+lokale Entwicklung oder ein simples `docker logs` gut lesbar. Mit
+`LOG_FORMAT=json` schreibt RareBirdAlert stattdessen ein JSON-Objekt pro
+Zeile - für Log-Aggregatoren (Loki, CloudWatch, ELK, ...), die auf `level`,
+`logger` oder zusätzlichen Feldern filtern/facettieren sollen, statt
+Freitext zu grep'en:
+
+```json
+{"timestamp": "2026-07-26T12:00:00+00:00", "level": "INFO", "logger": "rarebirdalert.scheduler", "message": "Sighting: GAF123 (EUFI) landed at EDDF - matched ['Eurofighter Typhoon']"}
+```
+
+Gilt auch für Uvicorns Access-/Error-Logs und APScheduler - nicht nur für
+RareBirdAlerts eigene Log-Zeilen, damit die Log-Pipeline nicht zwei
+verschiedene Formate gleichzeitig sieht.
 
 ## Verfügbare Metriken
 

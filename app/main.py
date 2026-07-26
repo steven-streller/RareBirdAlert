@@ -25,6 +25,7 @@ from app.db import (
     set_setting,
     set_user_setting,
 )
+from app.logging_config import configure_logging
 from app.matcher import MATCH_TYPES
 from app.models import (
     AircraftCategory,
@@ -42,7 +43,7 @@ from app.scheduler import poll_job, reschedule_backup_job, reschedule_poll_job, 
 from app.security import hash_password, verify_password
 from app.version import __version__
 
-logging.basicConfig(level=logging.INFO)
+configure_logging()
 logger = logging.getLogger("rarebirdalert.main")
 
 
