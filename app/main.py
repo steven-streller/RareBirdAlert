@@ -11,7 +11,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlmodel import Session, select
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import backup, flight_sources
+from app import aircraft_db, backup, flight_sources
 from app.auth import get_current_user, login_user, logout_user, require_admin, require_user
 from app.csrf import get_or_create_csrf_token, verify_csrf
 from app.db import (
@@ -26,7 +26,7 @@ from app.db import (
     set_user_setting,
 )
 from app.logging_config import configure_logging
-from app.matcher import MATCH_TYPES
+from app.matcher import MATCH_TYPES, AircraftInfo, matches
 from app.models import (
     AircraftCategory,
     Airport,
@@ -41,6 +41,7 @@ from app.notifications import CHANNELS, send_to_channel
 from app.rate_limit import login_rate_limiter, register_rate_limiter
 from app.scheduler import poll_job, reschedule_backup_job, reschedule_poll_job, start_scheduler
 from app.security import hash_password, verify_password
+from app.stats import compute_stats
 from app.version import __version__
 
 configure_logging()
@@ -296,6 +297,24 @@ def dashboard(request: Request, current_user: User = Depends(require_user)):
     )
 
 
+# --- Stats ----------------------------------------------------------------------
+
+
+@app.get("/stats")
+def stats_page(request: Request, current_user: User = Depends(require_user)):
+    with Session(engine) as session:
+        stats = compute_stats(session, current_user.id)
+    return templates.TemplateResponse(
+        request,
+        "stats.html",
+        {
+            "active": "stats",
+            "current_user": current_user,
+            "stats": stats,
+        },
+    )
+
+
 # --- Airports -------------------------------------------------------------------
 
 
@@ -441,6 +460,20 @@ def map_live_aircraft(current_user: User = Depends(require_user)):
         for w in watches:
             max_radius[w.airport_id] = max(max_radius.get(w.airport_id, 0.0), w.radius_km)
 
+        # Same categories/watchlist entries notify_check_job would consider
+        # for this user (app/scheduler.py) - here purely to flag matches for
+        # display, no Sighting/NotificationLog is ever written from this route.
+        enabled_categories = [
+            c
+            for c in session.exec(select(AircraftCategory))
+            if get_user_setting(session, current_user.id, f"category_enabled_{c.key}") == "true"
+        ]
+        watchlist_entries = session.exec(
+            select(WatchlistEntry).where(
+                WatchlistEntry.user_id == current_user.id, WatchlistEntry.enabled == True  # noqa: E712
+            )
+        ).all()
+
         aircraft = []
         for airport_id, radius_km in max_radius.items():
             airport = airports.get(airport_id)
@@ -449,6 +482,22 @@ def map_live_aircraft(current_user: User = Depends(require_user)):
             for state in flight_sources.fetch_merged_states(session, airport.lat, airport.lon, radius_km):
                 if state.lat is None or state.lon is None:
                     continue
+
+                meta = aircraft_db.lookup(state.icao24) or {}
+                info = AircraftInfo(
+                    icao24=state.icao24,
+                    callsign=state.callsign,
+                    registration=state.registration or meta.get("registration"),
+                    typecode=state.typecode or meta.get("typecode"),
+                    operator=meta.get("operator"),
+                    flagged_military=state.flagged_military,
+                    flagged_pia=state.flagged_pia,
+                    flagged_ladd=state.flagged_ladd,
+                )
+                match_labels = [c.label for c in enabled_categories if matches(c.match_type, c.pattern, info)] + [
+                    e.label for e in watchlist_entries if matches(e.match_type, e.pattern, info)
+                ]
+
                 aircraft.append(
                     {
                         "icao24": state.icao24,
@@ -462,6 +511,8 @@ def map_live_aircraft(current_user: User = Depends(require_user)):
                         "flagged_pia": state.flagged_pia,
                         "flagged_ladd": state.flagged_ladd,
                         "airport_icao": airport.icao,
+                        "is_match": bool(match_labels),
+                        "match_labels": match_labels,
                     }
                 )
 

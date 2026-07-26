@@ -1,7 +1,7 @@
 from sqlmodel import Session, select
 
 from app import flight_sources
-from app.models import AirportWatch, User
+from app.models import AirportWatch, User, WatchlistEntry
 from app.state_vector import StateVector
 from tests.conftest import register
 
@@ -91,6 +91,58 @@ def test_map_live_requires_login(client):
     resp = client.get("/map/live", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"
+
+
+def test_map_live_flags_builtin_category_match(client, monkeypatch):
+    """Eurofighter Typhoon is a built-in category, enabled by default for
+    every user (see USER_DEFAULT_SETTINGS in app/db.py) - a live aircraft
+    reporting that typecode should come back flagged without the user
+    having to configure anything."""
+    register(client, "alice@example.com")
+    client.post("/airports", data={"icao": "EDDF", "radius_km": "15"})
+
+    state = StateVector(icao24="3c6444", callsign="GAF123", on_ground=True, lat=50.05, lon=8.55, typecode="EUFI")
+    monkeypatch.setattr(flight_sources, "fetch_merged_states", lambda session, lat, lon, r: [state])
+
+    resp = client.get("/map/live")
+    aircraft = resp.json()["aircraft"][0]
+    assert aircraft["is_match"] is True
+    assert "Eurofighter Typhoon" in aircraft["match_labels"]
+
+
+def test_map_live_flags_own_watchlist_entry_match(client, test_engine, monkeypatch):
+    register(client, "alice@example.com")
+    client.post("/airports", data={"icao": "EDDF", "radius_km": "15"})
+
+    with Session(test_engine) as session:
+        user = session.exec(select(User).where(User.email == "alice@example.com")).first()
+        session.add(
+            WatchlistEntry(user_id=user.id, label="Meine Kennung", match_type="registration", pattern="D-ABCD")
+        )
+        session.commit()
+
+    state = StateVector(
+        icao24="abcdef", callsign="DLH1", on_ground=False, lat=50.05, lon=8.55, registration="D-ABCD"
+    )
+    monkeypatch.setattr(flight_sources, "fetch_merged_states", lambda session, lat, lon, r: [state])
+
+    resp = client.get("/map/live")
+    aircraft = resp.json()["aircraft"][0]
+    assert aircraft["is_match"] is True
+    assert aircraft["match_labels"] == ["Meine Kennung"]
+
+
+def test_map_live_marks_ordinary_traffic_as_no_match(client, monkeypatch):
+    register(client, "alice@example.com")
+    client.post("/airports", data={"icao": "EDDF", "radius_km": "15"})
+
+    state = StateVector(icao24="ffffff", callsign="DLH1", on_ground=False, lat=50.05, lon=8.55, typecode="A320")
+    monkeypatch.setattr(flight_sources, "fetch_merged_states", lambda session, lat, lon, r: [state])
+
+    resp = client.get("/map/live")
+    aircraft = resp.json()["aircraft"][0]
+    assert aircraft["is_match"] is False
+    assert aircraft["match_labels"] == []
 
 
 def test_map_live_skips_watch_referencing_a_missing_airport(client, test_engine, monkeypatch):
