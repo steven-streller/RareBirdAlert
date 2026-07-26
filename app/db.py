@@ -90,6 +90,7 @@ GLOBAL_DEFAULT_SETTINGS = {
     "source_enabled_airplaneslive": "true",
     "opensky_client_id": "",
     "opensky_client_secret": "",
+    "backup_interval_hours": "24",
 }
 
 # Setting keys where a deploy-time env var takes precedence over whatever is

@@ -280,6 +280,19 @@ form.settings-form select {
     margin-top: 0;
 }
 
+.backup-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.8rem 0 0;
+}
+
+.backup-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.3rem 0;
+}
+
 details.channel {
     background: var(--bg-card);
     border: 1px solid var(--border);

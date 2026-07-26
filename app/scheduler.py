@@ -5,7 +5,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlmodel import Session, select
 
-from app import adsbdb, aircraft_db, flight_sources, metrics, planespotters
+from app import adsbdb, aircraft_db, backup, flight_sources, metrics, planespotters
 from app.db import engine, get_setting, get_user_setting
 from app.matcher import AircraftInfo, matches
 from app.models import (
@@ -247,9 +247,14 @@ def reschedule_poll_job(seconds: int) -> None:
     scheduler.reschedule_job("poll_job", trigger=IntervalTrigger(seconds=seconds))
 
 
+def reschedule_backup_job(hours: int) -> None:
+    scheduler.reschedule_job("backup_job", trigger=IntervalTrigger(hours=hours))
+
+
 def start_scheduler() -> None:
     with Session(engine) as session:
         interval = int(get_setting(session, "poll_interval_seconds") or 90)
+        backup_interval_hours = int(get_setting(session, "backup_interval_hours") or 24)
 
     scheduler.add_job(
         poll_job,
@@ -270,6 +275,14 @@ def start_scheduler() -> None:
         aircraft_db.refresh_aircraft_db,
         trigger=IntervalTrigger(seconds=aircraft_db.REFRESH_INTERVAL_SECONDS),
         id="aircraft_db_refresh_job",
+        next_run_time=datetime.now(),
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        backup.run_backup,
+        trigger=IntervalTrigger(hours=backup_interval_hours),
+        id="backup_job",
         next_run_time=datetime.now(),
         max_instances=1,
         coalesce=True,

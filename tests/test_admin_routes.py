@@ -156,6 +156,123 @@ def test_admin_page_shows_flash_after_manual_poll(client):
     assert "Poll-Zyklus manuell angestoßen." in page.text
 
 
+def test_general_section_persists_backup_interval(client):
+    register(client, "alice@example.com")
+    client.post("/admin", data={"_section": "general", "poll_interval_seconds": "90", "backup_interval_hours": "6"})
+
+    page = client.get("/admin")
+    assert 'value="6"' in page.text
+
+
+def test_general_section_rejects_backup_interval_below_minimum(client):
+    register(client, "alice@example.com")
+    client.post("/admin", data={"_section": "general", "poll_interval_seconds": "90", "backup_interval_hours": "0"})
+
+    page = client.get("/admin")
+    assert 'value="1"' in page.text  # clamped to the minimum
+
+
+def test_backup_now_triggers_run_backup_and_redirects(client, monkeypatch):
+    calls = []
+    monkeypatch.setattr("app.main.backup.run_backup", lambda: calls.append(1))
+
+    register(client, "alice@example.com")
+    resp = client.post("/admin/backup-now", follow_redirects=False)
+
+    assert resp.headers["location"] == "/admin?backed_up=1"
+    assert calls == [1]
+
+
+def test_non_admin_cannot_trigger_backup_now(client, monkeypatch):
+    from app.main import app
+
+    calls = []
+    monkeypatch.setattr("app.main.backup.run_backup", lambda: calls.append(1))
+
+    alice = client
+    register(alice, "alice@example.com")
+    bob = TestClient(app)
+    register(bob, "bob@example.com")
+
+    resp = bob.post("/admin/backup-now", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/settings"
+    assert calls == []
+
+
+def test_admin_page_shows_flash_after_manual_backup(client):
+    register(client, "alice@example.com")
+    page = client.get("/admin?backed_up=1")
+    assert "Backup erstellt." in page.text
+
+
+def test_admin_page_lists_existing_backups(client, monkeypatch, tmp_path):
+    backup_file = tmp_path / "rarebirdalert-20260101-000000.db"
+    backup_file.write_text("fake-backup-content")
+    monkeypatch.setattr("app.main.backup.list_backups", lambda: [backup_file])
+
+    register(client, "alice@example.com")
+    page = client.get("/admin")
+
+    assert "rarebirdalert-20260101-000000.db" in page.text
+    assert 'href="/admin/backups/rarebirdalert-20260101-000000.db"' in page.text
+
+
+def test_download_backup_serves_an_existing_file(client, monkeypatch, tmp_path):
+    backup_file = tmp_path / "rarebirdalert-20260101-000000.db"
+    backup_file.write_text("fake-backup-content")
+    monkeypatch.setattr("app.main.backup.list_backups", lambda: [backup_file])
+
+    register(client, "alice@example.com")
+    resp = client.get("/admin/backups/rarebirdalert-20260101-000000.db")
+
+    assert resp.status_code == 200
+    assert resp.content == b"fake-backup-content"
+
+
+def test_download_backup_rejects_a_filename_not_in_the_backup_list(client, monkeypatch, tmp_path):
+    # This is the core of the CWE-22 defense: download_backup enumerates
+    # backup.list_backups() and only ever serves an exact match - anything
+    # else (typo, forged filename, traversal attempt) is rejected, however
+    # it's spelled, without ever touching the filesystem with the raw input.
+    backup_file = tmp_path / "rarebirdalert-20260101-000000.db"
+    backup_file.write_text("fake-backup-content")
+    monkeypatch.setattr("app.main.backup.list_backups", lambda: [backup_file])
+
+    register(client, "alice@example.com")
+    resp = client.get("/admin/backups/not-a-real-backup.db")
+
+    assert resp.status_code == 404
+
+
+def test_download_backup_rejects_an_unlisted_filename(client, monkeypatch, tmp_path):
+    backup_file = tmp_path / "rarebirdalert-20260101-000000.db"
+    backup_file.write_text("fake-backup-content")
+    monkeypatch.setattr("app.main.backup.list_backups", lambda: [backup_file])
+
+    register(client, "alice@example.com")
+    resp = client.get("/admin/backups/../../etc/passwd")
+
+    assert resp.status_code == 404
+
+
+def test_non_admin_cannot_download_backup(client, monkeypatch, tmp_path):
+    from app.main import app
+
+    backup_file = tmp_path / "rarebirdalert-20260101-000000.db"
+    backup_file.write_text("fake-backup-content")
+    monkeypatch.setattr("app.main.backup.list_backups", lambda: [backup_file])
+
+    alice = client
+    register(alice, "alice@example.com")
+    bob = TestClient(app)
+    register(bob, "bob@example.com")
+
+    resp = bob.get("/admin/backups/rarebirdalert-20260101-000000.db", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/settings"
+
+
 def test_save_admin_settings_falls_back_to_general_anchor_for_unknown_section(client):
     register(client, "alice@example.com")
     resp = client.post("/admin", data={"_section": "not-a-real-section"}, follow_redirects=False)

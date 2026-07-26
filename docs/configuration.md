@@ -14,6 +14,8 @@ Weboberfläche selbst.
 | `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET` | leer | Optionale OAuth2-Client-Credentials für ein höheres OpenSky-Rate-Limit. Siehe unten und [Datenquellen](data-sources.md). |
 | `TZ` | (System-Default) | Zeitzone für Anzeige der Landezeiten. Sollte auf `Europe/Berlin` stehen, sonst weichen angezeigte Uhrzeiten vom tatsächlichen Landezeitpunkt ab. |
 | `METRICS_TOKEN` | leer (offen) | Optionales Bearer-Token, um `/metrics` abzusichern. Siehe [Monitoring](monitoring.md). |
+| `RAREBIRDALERT_BACKUP_DIR` | `/app/data/backups` | Zielverzeichnis für automatische Datenbank-Backups. Siehe unten. |
+| `RAREBIRDALERT_BACKUP_KEEP` | `7` | Anzahl der aufzubewahrenden Backups (älteste werden nach jedem neuen Backup gelöscht). `0` deaktiviert die Rotation - dann bleiben alle Backups erhalten. |
 
 ## Admin-Account
 
@@ -45,6 +47,20 @@ Wie oft die aktivierten Datenquellen pro beobachtetem Flughafen abgefragt
 werden, ist global für alle Accounts gemeinsam (die Erkennungslogik selbst
 ist geteilt) – nicht über eine Umgebungsvariable, sondern über die
 **Admin**-Seite (Standard: 90 Sekunden, Minimum: 30 Sekunden).
+
+## Backups
+
+RareBirdAlert sichert seine SQLite-Datenbank automatisch (Standard: alle 24
+Stunden, unter **Admin → Allgemein** einstellbar) über SQLites eingebautes
+`VACUUM INTO` - ein konsistenter Snapshot, der auch während laufendem
+Betrieb erstellt werden kann, ohne den Poll-Zyklus zu pausieren. Ältere
+Backups werden automatisch rotiert (`RAREBIRDALERT_BACKUP_KEEP`, Standard:
+die letzten 7). Auf der **Admin**-Seite lässt sich außerdem jederzeit
+manuell ein Backup anstoßen und jedes vorhandene Backup herunterladen.
+
+**Wiederherstellen:** Container stoppen, die heruntergeladene
+Backup-Datei über den Pfad aus `RAREBIRDALERT_DB_PATH` kopieren, Container
+neu starten.
 
 ## Datenquellen und Zugangsdaten
 

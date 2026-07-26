@@ -29,9 +29,11 @@ def test_engine(tmp_path, monkeypatch):
     monkeypatch.setattr("app.main.engine", engine)
     monkeypatch.setattr("app.scheduler.engine", engine)
     monkeypatch.setattr("app.auth.engine", engine)
-    # aircraft_db imports DB_PATH by value (not the engine), so it needs its
-    # own patch target to see the per-test database file.
+    # aircraft_db and backup import DB_PATH by value (not the engine), so
+    # they need their own patch target to see the per-test database file.
     monkeypatch.setattr("app.aircraft_db.DB_PATH", str(db_path))
+    monkeypatch.setattr("app.backup.DB_PATH", str(db_path))
+    monkeypatch.setattr("app.backup.BACKUP_DIR", str(tmp_path / "backups"))
 
     init_db()
     return engine
@@ -44,13 +46,14 @@ def client(test_engine, monkeypatch):
     requests - which tests neither need nor want). The DB is already
     initialized by the test_engine fixture above.
 
-    reschedule_poll_job talks to the live APScheduler job store, which only
-    exists once start_scheduler() has run - stubbed out since that's a
-    separate concern from what these route tests check.
+    reschedule_poll_job/reschedule_backup_job talk to the live APScheduler
+    job store, which only exists once start_scheduler() has run - stubbed
+    out since that's a separate concern from what these route tests check.
     """
     from app.main import app
 
     monkeypatch.setattr("app.main.reschedule_poll_job", lambda seconds: None)
+    monkeypatch.setattr("app.main.reschedule_backup_job", lambda hours: None)
     return TestClient(app)
 
 

@@ -722,14 +722,27 @@ def test_reschedule_poll_job_changes_the_interval():
         scheduler.scheduler.remove_job("poll_job")
 
 
-def test_start_scheduler_registers_all_three_jobs(test_engine, monkeypatch):
+def test_start_scheduler_registers_all_jobs(test_engine, monkeypatch):
     monkeypatch.setattr(scheduler, "poll_job", lambda: None)
     monkeypatch.setattr(scheduler, "notify_check_job", lambda: None)
     monkeypatch.setattr(scheduler.aircraft_db, "refresh_aircraft_db", lambda: None)
+    monkeypatch.setattr(scheduler.backup, "run_backup", lambda: None)
 
     try:
         scheduler.start_scheduler()
         job_ids = {job.id for job in scheduler.scheduler.get_jobs()}
-        assert job_ids == {"poll_job", "notify_check_job", "aircraft_db_refresh_job"}
+        assert job_ids == {"poll_job", "notify_check_job", "aircraft_db_refresh_job", "backup_job"}
     finally:
         scheduler.scheduler.shutdown(wait=False)
+
+
+def test_reschedule_backup_job_changes_the_interval():
+    from apscheduler.triggers.interval import IntervalTrigger
+
+    scheduler.scheduler.add_job(lambda: None, trigger=IntervalTrigger(hours=24), id="backup_job")
+    try:
+        scheduler.reschedule_backup_job(6)
+        job = scheduler.scheduler.get_job("backup_job")
+        assert job.trigger.interval.total_seconds() == 6 * 3600
+    finally:
+        scheduler.scheduler.remove_job("backup_job")

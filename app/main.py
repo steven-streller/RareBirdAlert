@@ -4,14 +4,14 @@ import secrets
 from datetime import date, datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlmodel import Session, select
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import flight_sources
+from app import backup, flight_sources
 from app.auth import get_current_user, login_user, logout_user, require_admin, require_user
 from app.csrf import get_or_create_csrf_token, verify_csrf
 from app.db import (
@@ -37,7 +37,7 @@ from app.models import (
 )
 from app.notifications import CHANNELS, send_to_channel
 from app.rate_limit import login_rate_limiter
-from app.scheduler import poll_job, reschedule_poll_job, start_scheduler
+from app.scheduler import poll_job, reschedule_backup_job, reschedule_poll_job, start_scheduler
 from app.security import hash_password, verify_password
 from app.version import __version__
 
@@ -633,10 +633,14 @@ def admin_page(
     request: Request,
     saved: str = "",
     polled: str = "",
+    backed_up: str = "",
     current_user: User = Depends(require_admin),
 ):
     with Session(engine) as session:
-        settings = {"poll_interval_seconds": get_setting(session, "poll_interval_seconds")}
+        settings = {
+            "poll_interval_seconds": get_setting(session, "poll_interval_seconds"),
+            "backup_interval_hours": get_setting(session, "backup_interval_hours"),
+        }
 
         source_settings = {}
         for key, source in flight_sources.SOURCES.items():
@@ -655,6 +659,8 @@ def admin_page(
         flash = f"„{label}“ gespeichert."
     elif polled:
         flash = "Poll-Zyklus manuell angestoßen."
+    elif backed_up:
+        flash = "Backup erstellt."
 
     return templates.TemplateResponse(
         request,
@@ -665,6 +671,9 @@ def admin_page(
             "settings": settings,
             "sources": flight_sources.SOURCES,
             "source_settings": source_settings,
+            "backups": [
+                {"name": p.name, "size": p.stat().st_size} for p in reversed(backup.list_backups())
+            ],
             "flash": flash,
         },
     )
@@ -681,6 +690,10 @@ async def save_admin_settings(request: Request, current_user: User = Depends(req
             poll_interval = max(30, int(form.get("poll_interval_seconds") or 90))
             set_setting(session, "poll_interval_seconds", str(poll_interval))
             reschedule_poll_job(poll_interval)
+
+            backup_interval = max(1, int(form.get("backup_interval_hours") or 24))
+            set_setting(session, "backup_interval_hours", str(backup_interval))
+            reschedule_backup_job(backup_interval)
         elif section.removeprefix("source_") in flight_sources.SOURCES:
             key = section.removeprefix("source_")
             set_setting(session, f"source_enabled_{key}", "true" if form.get("source_enabled") else "false")
@@ -699,3 +712,24 @@ async def poll_now(request: Request, current_user: User = Depends(require_admin)
     verify_csrf(request, form.get("csrf_token"))
     poll_job()
     return RedirectResponse(url="/admin?polled=1", status_code=303)
+
+
+@app.post("/admin/backup-now")
+async def backup_now(request: Request, current_user: User = Depends(require_admin)):
+    form = await request.form()
+    verify_csrf(request, form.get("csrf_token"))
+    backup.run_backup()
+    return RedirectResponse(url="/admin?backed_up=1", status_code=303)
+
+
+@app.get("/admin/backups/{filename}")
+def download_backup(filename: str, current_user: User = Depends(require_admin)):
+    """Only ever serves a path taken from backup.list_backups() itself, never
+    the raw `filename` path parameter directly - the same enumerate-and-match
+    pattern as _safe_channel_anchor/_safe_admin_anchor, here defending
+    against path traversal (CWE-22) instead of an open redirect.
+    """
+    for existing in backup.list_backups():
+        if existing.name == filename:
+            return FileResponse(existing, filename=existing.name, media_type="application/octet-stream")
+    raise HTTPException(status_code=404, detail="Backup not found")
