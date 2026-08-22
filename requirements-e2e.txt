@@ -1,2 +1,2 @@
 -r requirements-dev.txt
-pytest-playwright==0.8.0
+pytest-playwright==0.9.0
