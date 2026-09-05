@@ -10,4 +10,4 @@ python-multipart==0.0.32
 itsdangerous==2.2.0
 bcrypt==5.0.0
 prometheus-client==0.26.0
-pywebpush==2.4.0
+pywebpush==2.5.0
