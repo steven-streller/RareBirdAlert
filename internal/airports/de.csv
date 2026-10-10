@@ -1,0 +1,475 @@
+# icao,lat,lon,elevation_ft,name  (OurAirports, public domain, DE airports)
+EDAB,51.1936,14.5197,568,Bautzen Airfield
+EDAC,50.9819,12.5064,640,Leipzig–Altenburg Airport
+EDAD,51.8318,12.1840,187,Dessau Airfield
+EDAE,52.1972,14.5857,149,Eisenhüttenstadt Airfield
+EDAG,50.6442,13.1264,2198,Großrückerswalde Airfield
+EDAH,53.8787,14.1523,94,Heringsdorf Airport
+EDAI,52.8267,12.5419,140,Sonderlandeplatz Segeletz
+EDAJ,50.8817,12.1358,1015,Gera-Leumnitz Airfield
+EDAK,51.3081,13.5556,417,Großenhain Airfield
+EDAM,51.3626,11.9411,340,Merseburg Airfield
+EDAN,53.3624,11.6138,115,Neustadt-Glewe Airfield
+EDAO,51.4935,10.8376,689,Nordhausen Airfield
+EDAP,51.6847,14.4231,279,Cottbus-Neuhausen Airfield
+EDAQ,51.5522,12.0539,350,Halle-Oppin Airfield
+EDAR,50.9796,13.9084,402,Pirna-Pratzschwitz Airfield
+EDAS,51.6346,13.6751,384,Finsterwalde-Heinrichsruh Airfield
+EDAT,51.4511,14.1994,382,Nardt Airfield
+EDAU,51.2936,13.3561,322,Riesa-Göhlis Airport
+EDAV,52.8263,13.7013,116,Eberswalde-Finow Airfield
+EDAW,51.5778,12.4944,289,Roitzschjora Airfield
+EDAX,53.3064,12.7522,220,Müritz Airpark
+EDAY,52.5806,13.9167,262,Strausberg Airfield
+EDAZ,52.2046,13.1595,152,Schönhagen Airfield
+EDBA,50.8419,11.0699,1145,Arnstadt-Alkersleben Airfield
+EDBC,51.8564,11.4203,599,Cochstedt Airport
+EDBE,52.4375,12.5900,100,Brandenburg-Mühlenfeld Airfield
+EDBF,52.7935,12.7603,135,Fehrbellin Airfield
+EDBG,52.2418,11.8562,173,Burg Airfield
+EDBH,54.3383,12.7105,23,Stralsund-Barth Airport
+EDBI,50.7017,12.4539,1050,Zwickau Airfield
+EDBJ,50.9153,11.7142,1228,Jena-Schöngleina Airfield
+EDBK,52.9189,12.4253,130,Kyritz Airfield
+EDBL,51.2458,11.6933,738,Laucha Airfield
+EDBM,52.0736,11.6264,268,Magdeburg City Airfield
+EDBN,53.6022,13.3060,228,Neubrandenburg Trollenhagen Airport
+EDBO,51.8997,13.0528,287,Oehna Airfield
+EDBP,53.6153,11.5611,144,Pinnow Airfield
+EDBQ,51.6721,13.9601,423,Bronkow Airfield
+EDBR,51.3633,14.9500,515,Rothenburg/Görlitz Airfield
+EDBS,51.1984,11.1918,451,Sömmerda-Dermsdorf Airfield
+EDBT,51.3806,11.4467,932,Allstedt Airfield
+EDBU,53.1800,12.1846,289,Pritzwalk-Sommersberg Airfield
+EDBV,54.3358,13.0433,49,Stralsund Airfield
+EDBW,52.6317,13.7669,262,Werneuchen Airfield
+EDBX,51.1589,14.9503,778,Görlitz Airfield
+EDBY,53.9728,13.3434,105,Schmoldow Airfield
+EDBZ,51.4919,13.8794,331,Schwarzheide/Schipkau Airfield
+EDCA,53.8328,13.6686,16,Anklam Otto Lilienthal Airfield
+EDCB,51.7458,11.2297,535,Ballenstedt Airfield
+EDCE,52.4828,14.0907,223,Müncheberg-Eggersdorf Airfield
+EDCG,54.3835,13.3255,69,Rügen Airport
+EDCH,51.0434,12.2319,673,Sprossen (Zeitz) Airfield
+EDCI,51.2718,14.5057,486,Klix Airfield
+EDCJ,50.7475,12.8375,1198,Chemnitz/Jahnsdorf Airfield
+EDCK,51.7237,11.9488,305,Köthen Airport
+EDCL,52.7094,12.0733,95,Klietz-Scharlibbe Airfield
+EDCM,51.2969,14.1275,495,Kamenz Airfield
+EDCO,51.2678,10.6347,909,Obermehler-Schlotheim Airfield
+EDCP,54.1578,13.7744,7,Peenemünde Airport
+EDCQ,51.7669,11.4983,525,Aschersleben Airfield
+EDCR,54.0819,11.6492,30,Rerik-Zweedorf Airfield
+EDCS,52.3083,13.1006,174,Saarmund Airfield
+EDCT,51.3950,12.5369,492,Taucha Airfield
+EDCU,53.8053,12.2306,46,Güstrow Airfield
+EDCV,53.5053,13.9483,72,Pasewalk Airfield
+EDCW,53.9144,11.4994,43,Wismar Airfield
+EDCX,54.1617,12.2486,66,Purkshof Airfield
+EDCY,51.5756,14.1369,375,Spremberg-Welzow Airfield
+EDDB,52.3617,13.5023,157,Berlin Brandenburg Airport
+EDDC,51.1341,13.7678,755,Dresden Airport
+EDDE,50.9783,10.9607,1036,Erfurt-Weimar Airport
+EDDF,50.0267,8.5584,364,Frankfurt Main Airport
+EDDG,52.1338,7.6885,160,Münster Osnabrück Airport
+EDDH,53.6304,9.9882,53,Hamburg Helmut Schmidt Airport
+EDDK,50.8659,7.1427,302,Cologne Bonn Airport
+EDDL,51.2895,6.7668,147,Düsseldorf Airport
+EDDM,48.3538,11.7861,1487,Munich Airport
+EDDN,49.4987,11.0781,1046,Nuremberg Airport
+EDDP,51.4207,12.2327,465,Leipzig/Halle Airport
+EDDR,49.2145,7.1097,1058,Saarbrücken Airport
+EDDS,48.6899,9.2220,1276,Stuttgart Airport
+EDDV,52.4611,9.6851,183,Hannover Airport
+EDDW,53.0468,8.7893,14,Bremen Airport
+EDEB,51.1292,10.6222,650,Bad Langensalza Airfield
+EDEG,50.9700,10.7278,991,Gotha-Ost Airfield
+EDEH,49.3450,8.4878,308,Herrenteich Airfield
+EDEL,49.9083,7.9078,295,Langenlonsheim Airfield
+EDEM,51.0627,9.4220,1296,Mosenberg Airfeld
+EDEN,50.8441,9.7072,0,Bad Hersfeld Airfield
+EDEP,49.6219,8.6244,361,Heppenheim Glider Field
+EDEQ,51.2131,10.5486,814,Mühlhausen Airfield
+EDER,50.4988,9.9542,2956,Wasserkuppe Airfield
+EDES,49.8538,8.5862,358,August Euler Airfield
+EDEW,49.5817,9.4022,1312,Walldürn Airfield
+EDFA,50.2883,8.5339,1102,Anspach-Taunus Airfield
+EDFB,50.3380,8.8790,397,Reichelsheim Airfield
+EDFC,49.9388,9.0628,410,Aschaffenburg Airfield
+EDFD,50.3061,10.2273,997,Bad Neustadt/Saale-Grasberg Airfield
+EDFE,49.9600,8.6430,384,Frankfurt-Egelsbach Airport
+EDFG,50.1967,9.1671,446,Gelnhausen Airfield
+EDFH,49.9464,7.2617,1649,Frankfurt-Hahn Airport
+EDFI,50.7878,8.3928,1706,Hirzenhain Airfield
+EDFJ,50.0985,9.8839,1132,Lager Hammelburg Airfield
+EDFK,50.2106,10.0689,653,Bad Kissingen Airfield
+EDFL,50.5448,8.5928,755,Gießen-Lützellinden Airfield
+EDFM,49.4731,8.5142,308,Mannheim-City Airport
+EDFN,50.8744,8.8150,833,Marburg-Schönstadt Airfield
+EDFO,49.6785,8.9716,1142,Michelstadt-Odenwald Airfield
+EDFP,50.3622,8.7116,822,Ober-Mörlen Airfield
+EDFQ,51.0353,8.6810,1158,Allendorf-Eder Airfield
+EDFR,49.3889,10.2186,1309,Rothenburg ob der Tauber Airfield
+EDFS,50.0108,10.2511,686,Schweinfurt South Airfield
+EDFT,50.6837,9.4117,1211,Lauterbach Airfield
+EDFU,49.6950,9.1824,1503,Mainbullau Airfield
+EDFV,49.6069,8.3683,295,Worms Airfield
+EDFW,49.8178,9.8975,991,Würzburg-Schenkenturm Airfield
+EDFX,49.3253,8.5286,315,Hockenheim Airfield
+EDFY,50.4269,8.0111,699,Limburg-Elz Airfield
+EDFZ,49.9675,8.1472,760,Mainz-Finthen Airfield
+EDGA,50.5931,7.9450,1542,Ailertchen Airfield
+EDGB,50.6764,8.1694,1834,Breitscheid Airfield
+EDGE,50.9916,10.4797,1112,Eisenach-Kindel Airport
+EDGF,50.4753,9.4432,1558,Fulda-Jossa Airfield
+EDGH,49.7986,9.8367,1050,Hettstadt Airfield
+EDGI,49.3217,9.6631,1375,Ingelfingen-Bühlhof Airfield
+EDGJ,49.6736,10.0714,814,Ochsenfurt Airfield
+EDGK,51.2522,8.8736,1280,Korbach Airfield
+EDGM,49.3989,9.1239,1818,Mosbach-Lohrbach Airfield
+EDGP,49.8417,8.3767,279,Oppenheim Airfield
+EDGQ,51.0003,8.3091,1788,Schameder Airfield
+EDGR,50.5664,8.8692,702,Gießen-Reiskirchen Airfield
+EDGS,50.7077,8.0830,1966,Siegerland Airport
+EDGT,50.7953,8.4583,1657,Bottenhorn Airfield
+EDGU,49.5158,9.6694,1155,Unterschüpf Airfield
+EDGW,51.3072,9.1753,1027,Flugplatz „Graner Berg“
+EDGX,49.3031,8.6589,344,Walldorf Airfield
+EDGY,49.7443,10.2073,689,Kitzingen Airfield
+EDGZ,49.5668,8.6114,318,Weinheim/Bergstraße Airfield
+EDHB,54.2444,11.0247,7,Grube Airfield
+EDHC,53.0172,11.1447,49,Lüchow-Rehbeck Airfield
+EDHD,51.4076,10.1453,1195,Eichsfeld Airfield
+EDHE,53.6455,9.7035,23,Uetersen-Heist Airfield
+EDHF,53.9920,9.5764,89,Itzehoe Hungriger Wolf Airfield
+EDHG,53.2483,10.4587,161,Lüneburg Airfield
+EDHI,53.5353,9.8356,23,Hamburg-Finkenwerder Airport
+EDHK,54.3796,10.1453,102,Kiel-Holtenau Airport
+EDHL,53.8054,10.7192,53,Lübeck Blankensee Airport
+EDHM,53.9150,10.0356,108,Hartenholm Airfield
+EDHN,54.0794,9.9414,72,Neumünster Airport
+EDHO,53.7003,9.7421,33,Ahrenlohe Airfield
+EDHS,53.5611,9.4992,63,Stade Airfield
+EDHU,53.2075,9.5733,98,Lauenbrück Airfield
+EDHW,53.9694,10.2217,128,Wahlstedt Airfield
+EDHY,52.8119,9.1638,53,Hoya Airfield
+EDJA,47.9881,10.2382,2077,Memmingen Allgau Airport
+EDJG,47.8528,12.5504,1765,Grabenstätt Airfield
+EDKA,50.8231,6.1864,623,Aachen-Merzbrück Airport
+EDKB,50.7689,7.1633,197,Bonn-Hangelar Airfield
+EDKD,51.3125,7.7041,1552,Altena-Hegenscheid Airfield
+EDKF,51.0521,7.7068,1604,Bergneustadt-Auf dem Dümpel Airfield
+EDKH,50.9286,7.8992,1306,Hünsborn Airfield
+EDKI,50.8172,7.8306,1125,Betzdorf-Kirchen Airfield
+EDKL,51.0153,7.0056,157,Leverkusen Airfield
+EDKM,51.3028,8.2392,1434,Meschede-Schüren Airfield
+EDKN,51.1242,7.3736,863,Wipperfürth-Neye Airfield
+EDKO,51.4028,8.6430,1509,Brilon-Hochsauerland Airfield
+EDKP,51.1919,7.7910,981,Plettenberg-Hüinghausen Airfield
+EDKR,51.1615,8.2607,1530,Schmallenberg-Rennefeld Airfield
+EDKU,51.1458,7.9367,1040,Attendorn-Finnentrop Airfield
+EDKV,50.4061,6.5303,1896,Dahlemer Binz Airfield
+EDKW,51.2972,7.8183,1037,Werdohl-Küntrop Airfield
+EDKZ,51.0994,7.5969,1549,Meinerzhagen Airfield
+EDLA,51.4839,7.8983,794,Arnsberg-Menden Airfield
+EDLB,51.7800,7.2881,157,Borkenberge Airfield
+EDLC,51.5292,6.5361,85,Kamp-Lintfort Airfield
+EDLD,51.6160,6.8613,217,Dinslaken-Schwarze Heide Airfield
+EDLE,51.4023,6.9373,424,Essen-Mülheim Airport
+EDLF,51.3339,6.3594,105,Grefrath-Niershorst Airfield
+EDLG,51.6908,6.1042,52,Goch-Asperden Airfield
+EDLH,51.6897,7.8161,190,Hamm-Lippewiesen Airfield
+EDLI,51.9647,8.5444,454,Bielefeld Airport
+EDLJ,51.9408,8.9047,650,Detmold Airfield
+EDLK,51.3850,6.5878,141,Krefeld-Egelsberg Airfield
+EDLM,51.6472,7.1633,240,Marl-Loemühle Airfield
+EDLN,51.2303,6.5044,125,Mönchengladbach Airport
+EDLO,51.9322,8.6617,558,Oerlinghausen Airfield
+EDLP,51.6125,8.6175,699,Paderborn Lippstadt Airport
+EDLQ,51.9317,8.0817,0,Beelen Airfield
+EDLR,51.6883,8.7753,801,Paderborn-Haxterberg Airfield
+EDLS,51.9958,6.8406,157,Stadtlohn-Vreden Airfield
+EDLT,51.9447,7.7736,177,Münster-Telgte Airfield
+EDLU,51.8306,8.1747,269,Oelde Bergeler Airfield
+EDLV,51.6014,6.1412,106,Weeze (Niederrhein) Airport
+EDLW,51.5183,7.6122,425,Dortmund Airport
+EDLX,51.6628,6.5958,72,Wesel-Römerwardt Airfield
+EDLY,51.8533,6.8147,157,Borken-Hoxfeld Airfield
+EDLZ,51.5781,8.2147,394,Soest-Bad Sassendorf Airfield
+EDMA,48.4253,10.9317,1516,Augsburg Airport
+EDMB,48.1124,9.7640,1903,Biberach an der Riß Airfield
+EDMC,48.4197,9.7983,2218,Blaubeuren Airfield
+EDMD,48.2287,11.4221,1608,Dachau-Gröbenried Airfield
+EDME,48.3961,12.7236,1342,Eggenfelden Airfield
+EDMF,48.5181,13.3458,1345,Fürstenzell Airfield
+EDMG,48.4867,10.2833,1457,Günzburg-Donauried Airfield
+EDMH,49.1122,10.7822,1591,Gunzenhausen-Reutberg Airfield
+EDMI,48.2350,10.1377,1680,Illertissen Airfield
+EDMJ,48.1744,11.1254,1860,Jesenwang Airfield
+EDMK,47.6919,10.3381,2339,Kempten-Durach Airfield
+EDML,48.5120,12.0349,1312,Landshut Airfield
+EDMN,48.1069,10.5250,1857,Mindelheim-Mattsies Airfield
+EDMO,48.0814,11.2831,1947,Oberpfaffenhofen Airport
+EDMP,48.4261,12.3453,1450,Vilsbiburg Airfield
+EDMQ,48.7031,10.8523,1312,Donauwörth-Genderkingen Airfield
+EDMS,48.9008,12.5167,1047,Straubing Airport
+EDMT,48.0100,10.0986,1903,Tannheim Airfield
+EDMU,48.5693,10.3585,1447,Gundelfingen Airfield
+EDMV,48.6350,13.1956,991,Vilshofen Airfield
+EDMW,48.8303,12.8797,1030,Deggendorf Airfield
+EDMY,48.2796,12.5005,1325,Mühldorf Airfield
+EDNA,48.2636,12.4117,1362,Ampfing-Waldkraiburg Airfield
+EDNB,49.1247,12.9856,1716,Arnbruck Airfield
+EDNC,49.0214,11.4847,1211,Beilngries Airfield
+EDND,49.0651,10.4035,1598,Dinkelsbühl-Sinbronn Airfield
+EDNE,48.3422,9.9161,1558,Erbach Airfield
+EDNF,48.8225,13.3675,1417,Elsenthal Grafe Airfield
+EDNG,48.6343,10.2165,1696,Giengen/Brenz Airfield
+EDNH,48.0161,10.6150,2034,Bad Wörishofen (Nord) Airfield
+EDNI,49.1310,11.4432,1266,Berching Airfield
+EDNJ,48.7819,11.2153,1345,Neuburg-Egweil Airfield
+EDNK,48.2383,12.9767,1138,Kirchdorf/Inn Airfield
+EDNL,47.8589,10.0142,2100,Leutkirch-Unterzeil Airfield
+EDNM,49.2225,12.2967,1161,Nittenau-Bruck Airfield
+EDNO,48.8706,10.5050,1385,Nördlingen Airfield
+EDNP,48.4203,12.8647,1266,Pfarrkirchen Airfield
+EDNQ,48.8481,10.3339,2028,Bopfingen Airfield
+EDNR,49.1419,12.0819,1299,Regensburg-Oberhub Airfield
+EDNS,48.1792,10.7028,1804,Schwabmünchen Airfield
+EDNT,48.9961,10.8842,1345,Treuchtlingen-Bubenheim Airfield
+EDNU,48.2900,10.4419,1611,Thannhausen Airfield
+EDNV,47.9461,12.2047,1535,Vogtareuth Airfield
+EDNW,48.2894,10.1403,1644,Weißenhorn Airfield
+EDNX,48.2392,11.5593,1594,Schleissheim Airfield
+EDNY,47.6713,9.5115,1367,Bodensee Airport Friedrichshafen
+EDNZ,50.1369,11.7944,2083,Zell-Haidberg Airfield
+EDOA,50.4973,12.3780,1880,Auerbach Airfield
+EDOB,50.9044,11.2603,1001,Bad Berka Airfield
+EDOC,52.5296,11.3494,230,Gardelegen Airfield
+EDOD,51.9008,13.1944,335,Reinsdorf Airfield
+EDOE,51.2139,12.3636,430,Böhlen Airfield
+EDOF,51.3725,11.1414,761,Bad Frankenhausen Airfield
+EDOG,51.5709,13.0516,0,Torgau-Beilrode Airfield
+EDOH,50.9483,13.2617,1266,Langhennersdorf Airfield
+EDOI,52.6617,12.7458,120,Bienenfarm Airfield
+EDOJ,52.1427,12.6714,217,Lüsse Airfield
+EDOK,50.7328,11.2361,1535,Rudolstadt-Groschwitz Airfield
+EDOL,52.0381,11.2056,344,Oschersleben Glider Field
+EDOM,51.9475,11.7697,171,Klein Mühlingen Airfield
+EDON,52.6131,14.2428,39,Neuhardenberg Marxwalde Airfield
+EDOQ,51.2968,13.0787,502,Oschatz Airfield
+EDOR,52.7408,12.3900,138,Stölln-Rhinow Airfield
+EDOS,50.6697,11.0511,1506,Pennewitz Airfield
+EDOT,50.6440,12.1746,1266,Greiz-Obergrochlitz Airfield
+EDOU,50.9651,11.3998,984,Weimar-Umpferstedt Airfield
+EDOV,52.6289,11.8186,184,Stendal-Borstel Airfield
+EDOW,53.5683,12.6528,282,Waren-Vielist Airfield
+EDOX,51.5951,12.2379,308,Renneritz Airfield
+EDOZ,51.9971,11.7898,167,Schönebeck-Zackmünde Airfield
+EDPA,48.7778,10.2647,1916,Aalen Heidenheim Elchingen Airfield
+EDPB,48.5628,9.7289,2362,Bad Ditzenbach Airfield
+EDPC,47.9269,12.2872,1690,Bad Endorf/Jolling Airfield
+EDPD,48.6567,12.4988,1165,Dingolfing Airfield
+EDPE,48.8769,11.1822,1713,Eichstätt Airfield
+EDPF,49.3397,12.1881,1270,Schwandorf Airfield
+EDPG,48.9539,12.4214,1060,Griesau Airfield
+EDPH,49.2680,11.0126,1181,Schwabach-Heidenberg Airfield
+EDPI,48.4566,11.9416,1375,Moosburg auf der Kippe Airfield
+EDPJ,48.4969,9.6403,2434,Laichingen Jakob Laur Airfield
+EDPK,48.0478,12.5006,1946,Schönberg Airfield
+EDPM,48.6782,9.8459,2274,Donzdorf Airfield
+EDPO,49.2856,11.4431,1394,Neumarkt-Oberpfalz Airfield
+EDPQ,49.4294,12.0981,1247,Schmidgaden Airfield
+EDPS,48.6828,13.6947,2674,Flugplatz Sonnen
+EDPT,48.6203,10.0583,1975,Gerstetten Airfield
+EDPU,48.7467,10.0050,2092,Bartholomä-Amalienhof Airfield
+EDPW,49.0642,11.2092,1893,Thalmässing-Waizenhofen Airfield
+EDPY,48.9615,10.2345,1650,Ellwangen Airfield
+EDPZ,47.8469,11.0611,1955,Paterzell Airfield
+EDQA,49.9204,10.9142,811,Bamberg-Breitenau Airfield
+EDQB,49.5100,10.3664,1220,Bad Windsheim Airfield
+EDQC,50.2625,10.9956,1490,Coburg-Brandensteinsebene Airfield
+EDQD,49.9850,11.6400,1601,Bayreuth Airport
+EDQE,49.7942,11.1336,1673,Burg Feuerstein Airport
+EDQF,49.3611,10.6694,1371,Ansbach-Petersdorf Airfield
+EDQG,49.6481,9.9664,981,Giebelstadt Airport
+EDQH,49.5827,10.8783,1070,Herzogenaurach Airfield
+EDQI,49.6052,11.2836,1788,Lauf-Lillinghof Airfield
+EDQK,50.1349,11.4591,1660,Kulmbach Airfield
+EDQL,50.1486,11.0481,853,Lichtenfels Airfield
+EDQM,50.2885,11.8529,1959,Hof-Plauen Airport
+EDQN,49.5875,10.5775,1198,Neustadt/Aisch Airfield
+EDQO,50.2258,11.7317,1880,Ottengrüner Heide Airfield
+EDQP,49.8633,11.7878,1496,Rosenthal-Plössen Airfield
+EDQR,50.0400,10.8225,827,Ebern-Sendelbach Airfield
+EDQS,50.6320,10.7260,1923,Suhl-Goldlauter Airfield
+EDQT,50.0182,10.5292,719,Haßfurt-Schweinfurt Airfield
+EDQW,49.6789,12.1164,1329,Weiden in der Oberpfalz Airfield
+EDQX,49.6423,11.1626,1765,Hetzleser Berg Airfield
+EDQY,50.2306,10.9958,1184,Coburg-Steinrücken Airfield
+EDQZ,49.7624,11.5746,1791,Pegnitz-Zipser Berg Airfield
+EDRA,50.5578,7.1371,673,Bad Neuenahr-Ahrweiler Airfield
+EDRB,49.9453,6.5650,1220,Bitburg Airport
+EDRC,49.4530,7.0390,1155,Marpingen Glider Airfield
+EDRD,49.8431,6.9161,879,Neumagen-Dhron Airfield
+EDRE,50.3660,7.3153,597,Mendig Airfield
+EDRF,49.4728,8.1957,351,Bad Dürkheim Airfield
+EDRG,49.7322,7.3361,1575,Idar-Oberstein/Göttschied Airfield
+EDRH,49.6106,7.1867,1093,Hoppstädten-Weiersbach Airfield
+EDRI,49.1417,8.3947,325,Linkenheim Airfield
+EDRJ,49.3125,6.6744,1119,Saarlouis-Düren Airfield
+EDRK,50.3256,7.5286,640,Koblenz-Winningen Airfield
+EDRL,49.3308,8.2097,394,Flugplatz Lachen-Speyerdorf
+EDRM,49.9678,7.1119,919,Traben-Trarbach/Mont Royal Airfield
+EDRN,49.9699,7.4784,1224,Nannhausen Airfield
+EDRO,49.0319,7.9905,492,Schweighofen Airfield
+EDRP,49.2644,7.4883,1247,Pirmasens-Pottschütthöhe Airfield
+EDRQ,49.6065,7.7956,950,Imsweiler UL
+EDRS,49.7908,7.6661,810,Bad Sobernheim-Domberg Airfield
+EDRT,49.8639,6.7875,666,Trier-Föhren Airfield
+EDRV,50.4519,6.7841,1581,Wershofen/Eifel Airfield
+EDRW,50.5661,7.6533,951,Dierdorf-Wienau Airfield
+EDRX,49.3400,7.2533,0,Bexbach Glider Field
+EDRY,49.3047,8.4514,312,Speyer Airfield
+EDRZ,49.2094,7.4006,1132,Zweibrücken Airport
+EDSA,48.2497,9.0625,2881,Albstadt-Degerfeld Airfield
+EDSB,48.7794,8.0805,408,Karlsruhe Baden-Baden Airport
+EDSE,48.6586,9.6242,0,Göppingen-Bezgenriet Airfield
+EDSG,48.5361,9.4369,2329,Grabenstetten Airfield
+EDSH,48.9197,9.4553,965,Backnang-Heiningen Airfield
+EDSI,47.7988,8.7186,1594,Binningen Glider Field
+EDSK,48.5611,7.8433,453,Kehl-Sundheim Airfield
+EDSL,47.8437,8.5643,2290,Blumberg Airfield
+EDSN,47.9767,8.9039,2638,Neuhausen ob Eck Airfield
+EDSO,48.6212,9.6557,2318,Gruibingen-Nortel Airfield
+EDSP,48.5473,8.9459,1315,Poltringen Airfield
+EDSR,47.8026,8.9794,0,Radolfzell-Stahlringen Airfield
+EDST,48.6318,9.4292,1146,Hahnweide Airfield
+EDSV,48.6149,8.7555,1965,Wächtersberg-Hub Glider Airfield
+EDSW,48.2699,7.8419,623,Altdorf-Wallburg Airfield
+EDSX,49.0093,9.3546,1301,Völkleshofen-Lichtenberg Airfield
+EDSZ,48.1866,8.7228,2444,Rottweil-Zepfenhan Airfield
+EDTB,48.7919,8.1858,404,Baden-Oos Airfield
+EDTC,49.1348,8.5641,0,Bruchsal Airfield
+EDTD,47.9733,8.5222,2231,Donaueschingen-Villingen Airfield
+EDTE,48.4854,8.7780,1640,Eutingen Airfield
+EDTF,48.0228,7.8325,801,Freiburg im Breisgau Airfield
+EDTG,47.9032,7.6174,696,Bremgarten Airfield
+EDTH,48.8030,9.9277,1424,Heubach Airfield
+EDTK,49.2472,8.8938,519,Sinsheim Airfield
+EDTL,48.3693,7.8277,511,Lahr Airport
+EDTM,48.0539,9.3728,1818,Mengen-Hohentengen Airfield
+EDTN,48.6128,9.4772,1214,Nabern-Teck Airfield
+EDTO,48.4481,7.9236,509,Offenburg-Baden Airfield
+EDTP,47.9089,9.2506,2303,Pfullendorf Airfield
+EDTQ,48.8642,9.2247,920,Pattonville Airfield
+EDTR,47.5603,7.7483,925,Herten-Rheinfelden Airfield
+EDTS,48.0658,8.5714,2169,Schwenningen am Neckar Airfield
+EDTU,48.0294,9.5072,1903,Bad Saulgau Airfield
+EDTW,48.2792,8.4283,2310,Winzeln-Schramberg Airfield
+EDTX,49.1244,9.7811,1299,Schwäbisch Hall-Weckrieden Airfield
+EDTY,49.1183,9.7839,1299,Adolf Würth Airport
+EDTZ,47.6814,9.1393,1302,Konstanz Airfield
+EDUA,52.6506,12.4878,148,Flugplatz Stechow-Ferchesar
+EDUF,51.5478,13.2281,312,Falkenberg-Lönnewitz Airfield
+EDUG,53.0063,13.2022,164,Gransee Airfield
+EDUO,51.5429,11.5952,738,Oberrißdorf Airfield
+EDUW,53.9177,13.2203,26,Tutow-Betriebs Airfield
+EDUZ,52.0008,12.1486,289,Zerbst Airfield
+EDVA,51.8542,10.0256,791,Bad Gandersheim Airfield
+EDVC,52.6882,10.1128,207,Celle-Arloh Airfield
+EDVD,51.6619,9.6044,850,Uslar Airfield
+EDVE,52.3192,10.5561,295,Braunschweig-Wolfsburg Airport
+EDVF,51.9172,9.1117,535,Blomberg-Borkhausen Airfield
+EDVG,51.3764,8.9811,1190,Mengeringhausen Airfield
+EDVH,52.7619,9.6106,79,Hodenhagen Airfield
+EDVI,51.8067,9.3783,934,Höxter-Holzminden Airfield
+EDVJ,52.0307,10.3625,741,Salzgitter-Schäferstuhl Airfield
+EDVK,51.4184,9.3916,820,Kassel Airport
+EDVL,51.6109,9.3984,837,Hölleberg Airfield
+EDVM,52.1798,9.9458,292,Hildesheim Airfield
+EDVN,51.7064,10.0397,404,Northeim Airfield
+EDVP,52.3238,10.1815,246,Peine-Glindbruchkippe Airfield
+EDVQ,52.5247,10.4626,191,Wilsche Glider Field
+EDVR,52.1753,9.0533,180,Rinteln Airfield
+EDVT,51.9520,9.6620,1264,Ithwiesen Airfield
+EDVU,52.9837,10.4654,246,Uelzen Airfield
+EDVW,51.9667,9.2917,1178,Bad Pyrmont Airfield
+EDVY,52.2214,8.8598,148,Porta Westfalica Airfield
+EDWC,52.4876,8.1852,151,Damme Airfield
+EDWE,53.3911,7.2275,3,Emden Airport
+EDWF,53.2719,7.4417,3,Flugplatz Leer-Papenburg
+EDWG,53.7825,7.9196,7,Wangerooge Airport
+EDWH,53.0689,8.3136,26,Oldenburg-Hatten Airfield
+EDWI,53.5022,8.0522,19,JadeWeser Airport
+EDWJ,53.6814,7.0564,7,Juist Airport
+EDWK,53.3328,9.0283,20,Karlshöfen Airfield
+EDWL,53.7424,7.4963,7,Langeoog Airport
+EDWM,53.0539,9.2086,59,Weser-Wümme Airfield
+EDWN,52.4575,7.1822,89,Nordhorn-Lingen Airfield
+EDWO,52.2864,7.9697,287,Atterheide Airfield
+EDWP,53.3214,8.0733,33,Wiefelstede-Conneforde Airfield
+EDWQ,53.0361,8.5056,95,Ganderkesee Atlas Airfield
+EDWR,53.5964,6.7092,3,Borkum Airport
+EDWS,53.6331,7.1903,3,Norden-Norddeich Airport
+EDWT,53.5383,8.5388,10,Blexen Airfield
+EDWU,52.9083,8.0406,128,Varrelbusch Airfield
+EDWV,52.9653,9.2828,144,Verden-Scharnhorst Airfield
+EDWX,53.2886,7.9306,30,Westerstede-Felde Airfield
+EDWY,53.7069,7.2300,7,Norderney Airport
+EDWZ,53.7249,7.3733,7,Baltrum Airport
+EDXA,52.3772,7.9133,177,Flugplatz Achmer
+EDXB,54.1533,8.9017,7,Heide-Büsum Airport
+EDXC,54.4255,9.5419,52,Schleswig-Kropp Airfield
+EDXD,52.3514,8.3283,148,Bohmte-Bad Essen Airfield
+EDXE,52.2764,7.4928,131,Rheine-Eschendorf Airfield
+EDXF,54.7733,9.3789,131,Flensburg-Schäferhaus Airport
+EDXG,52.2008,8.3806,236,Melle-Grönegau Airfield
+EDXH,54.1853,7.9158,8,Helgoland-Düne Airport
+EDXI,52.7097,9.1625,82,Nienburg-Holzbalge Airfield
+EDXJ,54.5100,9.1383,62,Husum-Schwesing Airport
+EDXK,54.7909,8.9634,23,Leck Airfield
+EDXL,53.1644,7.7939,10,Barßel Airfield
+EDXM,53.9783,9.1452,125,Sankt Michaelisdonn Airfield
+EDXN,53.7672,8.6436,72,Nordholz-Spieka Airfield
+EDXO,54.3089,8.6869,7,Sankt Peter-Ording Airport
+EDXP,53.7067,7.8203,7,Harle Airfield
+EDXQ,53.1283,9.3486,98,Rotenburg (Wümme) Airfield
+EDXR,54.2200,9.5994,23,Rendsburg-Schachtholm Airfield
+EDXS,53.3356,9.2594,72,Seedorf Airfield
+EDXT,54.0667,10.7422,79,Sierksdorf/Hof Altona Airfield
+EDXU,53.2867,8.9472,10,Hüttenbusch Airfield
+EDXW,54.9132,8.3405,51,Westerland Sylt Airport
+EDXY,54.6844,8.5283,26,Wyk auf Föhr Airport
+EDXZ,53.5681,8.7894,26,Kührstedt-Bederkesa Airfield
+ETAD,49.9765,6.6984,1197,Spangdahlem Air Base
+ETAR,49.4369,7.6003,776,Ramstein Air Base
+ETHA,47.8355,10.8712,2425,Altenstadt Army Airfield
+ETHB,52.2785,9.0822,230,Bückeburg Air Base
+ETHC,52.5912,10.0221,129,Celle Army Airfield
+ETHE,52.2912,7.3870,129,Rheine-Bentlage Airfield
+ETHF,51.1146,9.2860,565,Fritzlar Army Airfield
+ETHL,48.2203,9.9100,1766,Laupheim Air Base
+ETHN,49.3916,9.9567,1536,Niederstetten Army Air Base
+ETHS,52.9194,10.1858,245,Faßberg Air Base
+ETIC,49.6987,11.9402,1363,Grafenwöhr Army Air Field
+ETIH,49.2165,11.8361,1455,Hohenfels Army Airfield
+ETMN,53.7677,8.6592,74,Sea-Airport Cuxhaven/Nordholz / Nordholz Naval Airbase
+ETND,52.5856,8.3422,128,Diepholz Air Base
+ETNG,50.9608,6.0424,296,Geilenkirchen Air Base
+ETNH,54.3122,9.5382,39,Hohn Air Base
+ETNL,53.9182,12.2783,138,Rostock-Laage Airport
+ETNN,50.8312,6.6582,386,Nörvenich Air Base
+ETNS,54.4593,9.5163,70,Schleswig Air Base
+ETNT,53.5478,7.6673,26,Wittmundhafen Air Base
+ETNW,52.4573,9.4272,187,Wunstorf Air Base
+ETOI,49.6341,11.7675,1353,Vilseck Army Air Field
+ETOU,50.0498,8.3254,461,Wiesbaden Army Airfield
+ETSB,50.1738,7.0633,1568,Büchel Air Base
+ETSH,51.7678,13.1677,265,Holzdorf Air Base
+ETSI,48.7157,11.5340,1202,Ingolstadt Manching Airport
+ETSL,48.1855,10.8612,1822,Lechfeld Air Base
+ETSN,48.7110,11.2115,1249,Neuburg Air Base
+ETSR,49.2175,11.1002,1268,Roth Airfield
+ETT1,48.8103,11.4210,1253,Etting-Adelmannsberg Glider Field
+ETWM,52.7232,7.3263,0,Meppen Air Base

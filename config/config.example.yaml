@@ -1,0 +1,62 @@
+# Konfiguration von RareBirdAlert. Die Datei wird bei jedem Zyklus auf
+# Änderungen geprüft, ein Neustart ist nicht nötig. Ist sie fehlerhaft, bleibt
+# die letzte gültige Fassung aktiv und du bekommst eine Push mit der
+# Fehlerstelle. Unbekannte Schlüssel gelten als Fehler.
+
+timezone: Europe/Berlin          # für die Uhrzeiten in Pushes und Meldungen
+poll_interval: 15s               # Abstand der Abrufe bei adsb.lol / airplanes.live, mindestens 5s
+# opensky_interval: auto         # auto = aus dem Credit-Budget abgeleitet, oder etwa 60s (mindestens 30s)
+
+# Quellen in Rangfolge: Kennzeichen, Typ und Betreiber kommen aus der ersten
+# Quelle, die sie kennt; die Position aus der, die sie zuletzt aktualisiert hat.
+# Bekannt: adsb.lol, airplanes.live, opensky. OpenSky kennt keinen Typ.
+sources: [adsb.lol, opensky]
+
+airports:
+  - icao: EDDW                   # Bremen; Position und Höhe stehen in der eingebauten Liste
+    radius_nm: 10                # Geofence in Seemeilen, 2 bis 50
+  - icao: EDDV                   # Hannover
+  # Flughafen, der nicht in der Liste steht (oder anders vermessen werden soll):
+  # - icao: EDXX
+  #   name: Beispielfeld
+  #   lat: 52.5
+  #   lon: 9.5
+  #   elevation_ft: 200
+
+# Was interessant ist. Ein Treffer in einer beliebigen Liste oder Regel genügt.
+watch:
+  types:                         # ICAO-Typcodes
+    - A3ST                       # Airbus A300-600ST Beluga
+    - A337                       # Airbus A330-743L BelugaXL
+    - BLCF                       # Boeing 747 Dreamlifter
+    - A124                       # Antonov An-124
+    - B748                       # Boeing 747-8
+    - A388                       # Airbus A380
+  registrations: []              # etwa F-GSTA
+  hex: []                        # ICAO24-Adressen, etwa 3c6444
+  callsign_prefixes: []          # etwa BGA
+  operators: []                  # Teil des Betreibernamens; adsb.lol liefert ihn meist nicht, besser callsign_prefixes
+  military: true                 # alles, was die Community-Datenbank als militärisch markiert
+  interesting: true              # alles, was sie als "interessant" markiert
+
+# Neuheit: Push, wenn ein Flugzeugtyp zum ersten Mal an einem Flughafen im Anflug
+# erkannt wird. In der Lernphase wird nur mitgeschrieben, sonst wäre am ersten
+# Tag alles neu. Danach kommen Neuheiten mit notify.novelty (standardmäßig lautlos).
+# Der Typ muss bekannt sein: Flugzeuge ohne Typ in den Daten fallen heraus.
+novelty:
+  enabled: true
+  learning_period: 14d           # ab dem ersten Abruf je Flughafen, auch 336h
+
+# Schwellwerte der Erkennung. Mit RAREBIRDALERT_DRY_RUN=1 an echten Flügen einstellen.
+detection:
+  approach_max_alt_ft: 4000      # Höhe über dem Platz, unterhalb der ein Anflug zählt
+  min_descent_fpm: 300           # Sinkrate, ab der ein Flugzeug als sinkend gilt
+  landing_radius_nm: 3           # am Boden und so nah am Platz = gelandet
+
+notify:
+  approach: { priority: 0, sound: "" }    # priority -2 (lautlos) bis 1 (durchbricht Ruhezeiten)
+  landed:   { priority: -1, sound: "" }
+  novelty:  { priority: -1, sound: "" }   # gilt für Anflug und Landung eines neuen Typs
+
+cooldown: 3h                     # Pause je Flugzeug und Flughafen nach einer Push (Platzrunden, Touch-and-go)
+outage_alert_after: 15m          # Push, wenn keine Quelle so lange liefert; 0 = aus

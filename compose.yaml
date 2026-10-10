@@ -1,0 +1,42 @@
+# RareBirdAlert mit "podman compose" oder "docker compose" betreiben.
+#
+#   cp .env.example .env                               # Zugangsdaten und Kontakt eintragen
+#   cp config/config.example.yaml config/config.yaml   # Flughäfen und Watchlist eintragen
+#   podman compose up -d --build
+
+services:
+  rarebirdalert:
+    build:
+      context: .
+      args:
+        VERSION: ${RAREBIRDALERT_VERSION:-dev}
+    image: rarebirdalert:${RAREBIRDALERT_VERSION:-dev}
+    container_name: rarebirdalert
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RAREBIRDALERT_LOG_LEVEL: info
+    volumes:
+      # Das Verzeichnis mounten, nicht die einzelne Datei: Ersetzt ein Editor die
+      # Datei beim Speichern, sähe der Container sonst weiter die alte Fassung.
+      - ./config:/config:ro
+      # Merkt sich, was schon gemeldet wurde, damit ein Neustart nichts wiederholt.
+      - rarebirdalert-state:/data
+    ports:
+      # /metrics und /healthz, nur vom Host aus erreichbar.
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      # Das Image hat weder Shell noch curl, das Binary prüft sich selbst.
+      test: ["CMD", "/rarebirdalert", "health"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  rarebirdalert-state:
