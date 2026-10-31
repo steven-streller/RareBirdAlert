@@ -7,7 +7,7 @@
 #
 # The build stage runs on the build machine's architecture and cross-compiles,
 # so building for arm64 on amd64 needs no emulation.
-FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine3.24@sha256:85dc1069ac644ea3c527b177303a406eb3358192816cd7f9e5848eb658851673 AS build
+FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine3.24@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS build
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=dev
