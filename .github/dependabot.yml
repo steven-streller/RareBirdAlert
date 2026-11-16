@@ -3,8 +3,8 @@
 # (Tag und Digest).
 #
 # Alle drei kommen gebündelt in einem Pull Request je Woche. Ist er grün,
-# führt der Workflow ihn selbst zusammen, und das nächtliche Release
-# veröffentlicht ihn, siehe .github/workflows/ci.yml.
+# führt der Workflow ihn selbst zusammen, und der nächtliche Build
+# veröffentlicht ihn als "edge", siehe .github/workflows/ci.yml.
 #
 # Drei Festlegungen kennt Dependabot nicht, sie werden von Hand angehoben und
 # stehen alle in .github/workflows/ci.yml: das Runner-Image (runs-on), buildx

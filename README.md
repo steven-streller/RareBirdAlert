@@ -472,30 +472,33 @@ Veröffentlicht wird nach `ghcr.io/<besitzer>/rarebirdalert`, bei Pull Requests 
 
 | Auslöser | Tags des Images | `rarebirdalert version` |
 |---|---|---|
-| Push auf `main` | `edge` | `edge-<Commit>` |
-| Tag `v1.2.3` | `1.2.3`, `1.2`, `latest` | `1.2.3` |
+| Push auf `main`, nächtlicher Build | `edge`, `sha-<Commit>` | `edge-<Commit>` |
+| Tag `v1.2.3`, von Hand geschoben | `1.2.3`, `1.2`, `latest` | `1.2.3` |
 | Pull Request | keine, es wird nur gebaut | – |
 
-**Releases.** Ein Release ist ein Tag `v1.2.3` mit GitHub-Release und Image. Zusammenführen und
-Veröffentlichen sind getrennt:
+**Updates laufen von selbst**, Zusammenführen und Veröffentlichen sind getrennt:
 
 - **Dependabot** bündelt Actions, Go-Module und Basis-Image in einem Pull Request je Woche. Bestehen Tests
   und Image-Build, führt der Workflow ihn zusammen. Sonst bleibt er offen.
-- **Jede Nacht** (02:17 UTC) prüft der Workflow, ob `main` seit dem letzten Tag neue Commits hat. Wenn ja,
-  testet er `main`, veröffentlicht das Image mit der nächsten Patch-Version und legt danach Tag und Release
-  an. Wenn nein, endet er nach wenigen Sekunden. Mehrere Updates eines Tages ergeben so ein Release.
-- **Alles auf `main` wird veröffentlicht**, auch eigene Commits. Unfertiges gehört auf einen Branch.
-- **Von Hand**, etwa für eine neue Minor- oder Major-Version: Actions → CI → „Run workflow“ auf `main` mit
-  `release` und der gewünschten Stelle, oder `gh workflow run ci.yml --ref main -f release=true -f bump=minor`.
-  Ein von Hand geschobener Tag `v1.2.3` baut wie bisher das Image, legt aber kein GitHub-Release an.
+- **Jede Nacht** (02:17 UTC) prüft der Workflow, ob sich auf `main` seit dem letzten Build etwas geändert
+  hat, das ins Image eingeht. Wenn ja, testet er und veröffentlicht `edge` neu. Wenn nein, endet er nach
+  wenigen Sekunden. Änderungen nur an Actions, README, Dashboard oder Beispiel-Config lösen keinen Build aus.
+- **Von Hand** baut Actions → CI → „Run workflow“ auf `main` sofort, ebenso `gh workflow run ci.yml --ref main`.
 
-Das Zusammenführen durch den Workflow löst keinen Durchlauf für `main` aus. Das Image `edge` entsteht deshalb
-bei eigenen Pushes und bei jedem Release, nicht nach jedem Dependabot-Update. GitHub schaltet geplante
-Workflows in öffentlichen Repos nach 60 Tagen ohne Aktivität ab und meldet das per E-Mail; unter Actions lässt
-sich der Workflow wieder einschalten.
+**Betrieb mit Digest.** `edge` ist ein beweglicher Tag. Wer das Image mit Digest festlegt, bestimmt selbst,
+wann ein neues Image läuft, und sieht jedes neue als Pull Request von Renovate:
 
-Wer das Image mit einer festen Version betreibt (`ghcr.io/<besitzer>/rarebirdalert:1.2.3` statt `edge`),
-bekommt neue Versionen von Renovate oder einem ähnlichen Werkzeug als Pull Request vorgeschlagen.
+```yaml
+image: ghcr.io/<besitzer>/rarebirdalert:edge@sha256:…
+```
+
+Renovate tauscht den Digest aus, sobald `edge` auf ein neues Image zeigt (`pinDigests`). Aus welchem Commit ein
+Image stammt, zeigen `rarebirdalert version`, die Metrik `rarebirdalert_build_info` und der Tag
+`sha-<Commit>`, über den sich ein älteres Image gezielt wieder einsetzen lässt.
+
+Das Zusammenführen durch den Workflow löst keinen Durchlauf für `main` aus, darum der nächtliche Build.
+GitHub schaltet geplante Workflows in öffentlichen Repos nach 60 Tagen ohne Aktivität ab und meldet das per
+E-Mail; unter Actions lässt sich der Workflow wieder einschalten.
 
 Nichts, was der Build heranzieht, steht auf einer beweglichen Version wie `latest`: Actions sind auf Commits
 festgelegt, das Basis-Image auf Tag und Digest, Go-Module auf Version und Prüfsumme. Dependabot hebt sie an.

@@ -1,20 +1,22 @@
 name: CI
 
 # Bei jedem Push und Pull Request: Tests, dann das Image bauen.
-# Veröffentlicht wird nicht bei Pull Requests: main ergibt den Tag "edge",
-# ein Versions-Tag wie v1.2.3 ergibt 1.2.3, 1.2 und latest.
+# Veröffentlicht wird nicht bei Pull Requests: main ergibt die Tags "edge"
+# und "sha-<Commit>", ein von Hand geschobener Versions-Tag wie v1.2.3 ergibt
+# 1.2.3, 1.2 und latest.
 #
 # Zusammenführen und Veröffentlichen sind getrennt:
 #
 #   - Ein Pull Request von Dependabot, der grün ist, wird zusammengeführt.
-#   - Einmal in der Nacht entsteht aus allem, was seit dem letzten Tag auf
-#     main dazukam, ein Release mit der nächsten Patch-Version: Tests, Image
-#     1.2.4, 1.2 und latest, dann Tag und GitHub-Release. Gibt es nichts
-#     Neues, endet der Durchlauf nach dem ersten Job.
+#   - Einmal in der Nacht wird "edge" neu gebaut, wenn sich auf main seit dem
+#     letzten Build etwas geändert hat, das ins Image eingeht. Sonst endet der
+#     Durchlauf nach dem ersten Job.
 #
-# Was ein Workflow mit dem GITHUB_TOKEN auslöst (zusammenführen, Tag anlegen),
-# startet keinen weiteren Workflow. Der Release-Durchlauf baut deshalb das
-# Image selbst, statt auf einen Durchlauf für den neuen Tag zu warten.
+# Was ein Workflow mit dem GITHUB_TOKEN zusammenführt, startet keinen
+# Durchlauf für main. Deshalb der nächtliche Build.
+#
+# Wer das Image mit Digest betreibt (…:edge@sha256:…), bekommt von Renovate
+# einen Pull Request, sobald "edge" auf ein neues Image zeigt.
 
 on:
   push:
@@ -23,22 +25,12 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+"
       - "v[0-9]+.[0-9]+.[0-9]+-*"
   pull_request:
-  # Das nächtliche Release, in UTC. Die krumme Minute meidet den Andrang zur
+  # Der nächtliche Build, in UTC. Die krumme Minute meidet den Andrang zur
   # vollen Stunde, zu der GitHub geplante Durchläufe oft verspätet startet.
   schedule:
     - cron: "17 2 * * *"
-  # Von Hand: Actions -> CI -> Run workflow.
+  # Von Hand: Actions -> CI -> Run workflow. Baut immer.
   workflow_dispatch:
-    inputs:
-      release:
-        description: Auf main ein Release anlegen, wenn es seit dem letzten Tag Neues gibt
-        type: boolean
-        default: false
-      bump:
-        description: Welche Stelle der Version das Release erhöht
-        type: choice
-        options: [patch, minor, major]
-        default: patch
 
 # Ohne ausdrückliche Angabe darf ein Job nur lesen.
 permissions:
@@ -63,52 +55,50 @@ concurrency:
 #   - buildx und BuildKit: unten im Image-Job (von Hand anheben)
 
 jobs:
-  # Entscheidet, ob dieser Durchlauf ein Release ist und welche Version es
-  # bekommt. Ein Release-Durchlauf ohne neue Commits endet hier.
+  # Der nächtliche Durchlauf baut nur, wenn es etwas zu bauen gibt. Alle
+  # anderen Durchläufe bauen immer.
   plan:
     name: Plan
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read # frühere Durchläufe nachschlagen
     outputs:
       run: ${{ steps.plan.outputs.run }}
-      version: ${{ steps.plan.outputs.version }} # v1.2.3, leer = kein Release
     env:
-      RELEASE: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.release)) }}
-      BUMP: ${{ inputs.bump }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: env.RELEASE == 'true'
+        if: github.event_name == 'schedule'
         with:
-          fetch-depth: 0 # mit allen Tags
+          fetch-depth: 0 # der Stand des letzten Builds muss dabei sein
           persist-credentials: false
 
-      - name: Release und Version bestimmen
+      - name: Gibt es etwas zu bauen?
         id: plan
         run: |
-          if [ "$RELEASE" != true ]; then
+          if [ "$GITHUB_EVENT_NAME" != schedule ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          last=$({ git tag --list 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; } | head -n 1)
-          if [ -z "$last" ]; then
-            next=v1.0.0 # das erste Release
-          elif [ "$(git rev-list -n 1 "$last")" = "$GITHUB_SHA" ]; then
-            echo "::notice::Seit $last gibt es nichts Neues auf main, kein Release"
+          # Der Stand des letzten grünen Durchlaufs auf main. Der hat gebaut,
+          # oder er hat aus demselben Grund wie hier nicht bauen müssen: Das
+          # veröffentlichte Image entspricht in beiden Fällen diesem Stand.
+          last=$(gh run list --workflow ci.yml --branch main --status success --limit 1 --json headSha --jq '.[0].headSha // ""')
+
+          # Was nicht ins Image eingeht, löst keinen Build aus. Die Liste
+          # folgt der .dockerignore.
+          unchanged=(. ':!README.md' ':!grafana' ':!config' ':!.github' ':!compose.yaml' ':!.gitignore' ':!.dockerignore')
+          if [ -n "$last" ] && git cat-file -e "$last^{commit}" 2> /dev/null && git diff --quiet "$last" "$GITHUB_SHA" -- "${unchanged[@]}"; then
+            echo "::notice::Seit ${last::7} hat sich nichts geändert, das ins Image eingeht. Kein Build."
             echo "run=false" >> "$GITHUB_OUTPUT"
-            exit 0
           else
-            IFS=. read -r major minor patch <<< "${last#v}"
-            case "$BUMP" in
-              major) major=$((major + 1)); minor=0; patch=0 ;;
-              minor) minor=$((minor + 1)); patch=0 ;;
-              *) patch=$((patch + 1)) ;;
-            esac
-            next="v$major.$minor.$patch"
+            echo "::notice::Neuer Build, letzter Stand: ${last:-keiner}"
+            echo "run=true" >> "$GITHUB_OUTPUT"
           fi
-          echo "::notice::Release $next"
-          echo "run=true" >> "$GITHUB_OUTPUT"
-          echo "version=$next" >> "$GITHUB_OUTPUT"
 
   test:
     name: Tests
@@ -190,24 +180,23 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/${{ github.repository }}
-          # Die Version kommt bei einem Release-Durchlauf aus dem Plan
-          # (value), bei einem von Hand geschobenen Tag aus dem Tag selbst.
+          # "edge" wandert mit main. "sha-<Commit>" bleibt stehen: Daran ist
+          # ablesbar, aus welchem Stand ein Image stammt, und ein älteres
+          # Image lässt sich gezielt wieder einsetzen.
           tags: |
             type=edge,branch=main
-            type=semver,pattern={{version}},value=${{ needs.plan.outputs.version }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.plan.outputs.version }}
+            type=sha,prefix=sha-,format=short,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
 
       # Die Version landet im Binary: "rarebirdalert version" und die Metrik
       # rarebirdalert_build_info zeigen sie an.
       - name: Version bestimmen
         id: version
         env:
-          PLANNED: ${{ needs.plan.outputs.version }}
           TAGGED: ${{ steps.meta.outputs.version }}
         run: |
-          if [ -n "$PLANNED" ]; then
-            version=${PLANNED#v}
-          elif [ "$GITHUB_REF_TYPE" = tag ]; then
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
             version=$TAGGED
           else
             version="edge-${GITHUB_SHA::7}"
@@ -287,7 +276,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   # Ein Pull Request von Dependabot, der Tests und Image-Build bestanden hat,
-  # wird zusammengeführt. Veröffentlicht wird er mit dem nächsten Release.
+  # wird zusammengeführt. Veröffentlicht wird er mit dem nächtlichen Build.
   automerge:
     name: Dependabot zusammenführen
     needs: [test, image]
@@ -311,21 +300,3 @@ jobs:
       # --match-head-commit: zusammengeführt wird genau der geprüfte Stand.
       - name: Pull Request zusammenführen
         run: gh pr merge "$PR" --squash --match-head-commit "$HEAD_SHA"
-
-  # Der Tag entsteht erst, wenn das Image veröffentlicht ist: Es gibt kein
-  # Release ohne Image.
-  release:
-    name: Release
-    needs: [plan, image]
-    if: needs.plan.outputs.version != ''
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: write # Tag und Release anlegen
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      GH_REPO: ${{ github.repository }}
-      VERSION: ${{ needs.plan.outputs.version }}
-    steps:
-      - name: Tag und Release anlegen
-        run: gh release create "$VERSION" --target "$GITHUB_SHA" --title "$VERSION" --generate-notes
