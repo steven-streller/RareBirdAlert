@@ -252,3 +252,77 @@ func TestDurationAcceptsDays(t *testing.T) {
 		t.Error("nonsense must be refused")
 	}
 }
+
+func TestFleet(t *testing.T) {
+	cfg, err := Parse([]byte(`
+airports:
+  - icao: EDDW
+fleet:
+  home: edvh
+  aircraft:
+    - registration: d-ezip
+      name: Piper Archer III
+    - registration: DEUAC
+    - registration: N123AB
+      hex: A0F1B2
+notify:
+  away_landing: { priority: 1 }
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := cfg.Fleet
+	if strings.Join(f.Home, ",") != "EDVH" || !f.IsHome("EDVH") || f.IsHome("EDVC") {
+		t.Errorf("home = %v", f.Home)
+	}
+	// German registrations get the dash the sources need.
+	if got := strings.Join(f.Registrations(), ","); got != "D-EZIP,D-EUAC,N123AB" {
+		t.Errorf("registrations = %s", got)
+	}
+	if f.Aircraft[0].Name != "Piper Archer III" || f.Aircraft[2].Hex != "a0f1b2" || cfg.NotifyAway.Priority != 1 {
+		t.Errorf("fleet = %+v, notify %+v", f.Aircraft, cfg.NotifyAway)
+	}
+
+	for _, reg := range []string{"D-EZIP", "DEZIP", "d-ezip"} {
+		if e, ok := f.Find(aircraft.Aircraft{Hex: "3d1a2b", Reg: reg}); !ok || e.Reg != "D-EZIP" {
+			t.Errorf("Find(%q) = %+v, %t", reg, e, ok)
+		}
+	}
+	// The configured address finds an aircraft the source has no registration for.
+	if e, ok := f.Find(aircraft.Aircraft{Hex: "a0f1b2"}); !ok || e.Reg != "N123AB" {
+		t.Errorf("Find by hex = %+v, %t", e, ok)
+	}
+	if _, ok := f.Find(aircraft.Aircraft{Hex: "3c6444", Reg: "F-GSTA"}); ok {
+		t.Error("a foreign aircraft matched the fleet")
+	}
+
+	// Without a fleet nothing changes.
+	if cfg, err = Parse([]byte("airports:\n  - icao: EDDW\n")); err != nil || len(cfg.Fleet.Aircraft) != 0 || cfg.NotifyAway.Priority != 0 {
+		t.Errorf("no fleet: %+v, %v", cfg, err)
+	}
+}
+
+func TestFleetProblems(t *testing.T) {
+	_, err := Parse([]byte(`
+airports:
+  - icao: EDDW
+fleet:
+  home: [EDVH, KJFK]
+  aircraft:
+    - name: ohne Kennzeichen
+    - registration: D-EZIP
+    - registration: dezip
+    - registration: N123AB
+    - registration: D-EUAC
+      hex: xyz
+`))
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	for _, want := range []string{`fleet.home: "KJFK"`, "Eintrag 1: registration fehlt", "D-EZIP steht mehrfach",
+		"N123AB: das Kennzeichen braucht den Bindestrich", `D-EUAC: "xyz" ist kein ICAO24-Hexcode`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error lacks %q:\n%s", want, err)
+		}
+	}
+}

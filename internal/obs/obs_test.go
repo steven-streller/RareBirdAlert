@@ -26,6 +26,9 @@ func exercise(m *Metrics) string {
 	m.CountNotification(KindOutage, ResultFailed, "")
 	m.CountPhoto("found")
 	m.ConfigLoaded(2, 7)
+	m.WatchFleet([]string{"D-EZIP"}, []string{"landed", "lost"})
+	m.CountFlight("D-EZIP", "landed", 50*time.Minute)
+	m.PublishFleet([]FleetGauge{{Registration: "D-EZIP", Airborne: true, Received: true, AltFt: 2400, SpeedKt: 98.5}}, time.Minute)
 	m.Publish(
 		[]AirportGauge{{Airport: "EDDW", Aircraft: 5, Watched: 1, Approaching: 1}},
 		[]SourceGauge{{Source: "adsb.lol", Airport: "EDDW", Aircraft: 6}},

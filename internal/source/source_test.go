@@ -250,3 +250,31 @@ func TestOpenSkyBadCredentials(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestADSBv2LookupByRegistrationAndHex(t *testing.T) {
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		_, _ = w.Write([]byte(`{"ac":[{"hex":"3d1a2b","flight":"DEZIP   ","r":"D-EZIP","t":"P28A","alt_baro":2400,"gs":0,"lat":52.76,"lon":9.61,"seen_pos":2}],"msg":"No error","now":1791614886001}`))
+	}))
+	defer srv.Close()
+
+	c := NewADSBv2(NameADSBLol, srv.URL, "ua")
+	res, err := c.Lookup(context.Background(), ByRegistration, []string{"D-EZIP", "D-EUAC"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Aircraft) != 1 || res.Aircraft[0].Reg != "D-EZIP" {
+		t.Fatalf("aircraft = %+v", res.Aircraft)
+	}
+	// A reported speed of 0 is a speed: the aircraft stands still.
+	if a := res.Aircraft[0]; !a.HasSpeed || a.GroundSpeedKt != 0 {
+		t.Errorf("speed = %+v", a)
+	}
+	if _, err := c.Lookup(context.Background(), ByHex, []string{"3d1a2b"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(paths, " ") != "/v2/reg/D-EZIP,D-EUAC /v2/hex/3d1a2b" {
+		t.Errorf("paths = %v", paths)
+	}
+}

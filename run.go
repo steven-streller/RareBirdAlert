@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
+	"math"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -26,10 +29,12 @@ import (
 	"rarebirdalert/internal/source"
 )
 
+// requestGap is the pause between two requests to one source: airplanes.live
+// allows one request per second. Tests shorten it.
+var requestGap = 1100 * time.Millisecond
+
 // Timing of the sources.
 const (
-	// airplanes.live allows one request per second.
-	requestGap = 1100 * time.Millisecond
 	// areaMarginNM widens the query beyond the geofence, so that aircraft
 	// just outside it are seen coming.
 	areaMarginNM = 2.0
@@ -39,6 +44,10 @@ const (
 	// interval plans to use.
 	openSkyBudgetShare = 0.75
 )
+
+// fleetFeed is the place of the fleet lookup among the feeds of a source,
+// and what its log lines carry as "airport".
+const fleetFeed = "fleet"
 
 // feed is the last successful answer of one source for one airport.
 type feed struct {
@@ -332,11 +341,17 @@ func (a *app) reloadConfig() {
 	}
 	a.met.ConfigLoaded(len(cfg.Airports), cfg.Watch.Count())
 	a.met.WatchAirports(icaos, config.Rules)
+	outcomes := make([]string, 0, len(engine.Outcomes))
+	for _, o := range engine.Outcomes {
+		outcomes = append(outcomes, string(o))
+	}
+	a.met.WatchFleet(cfg.Fleet.Registrations(), outcomes)
 	obs.Log(a.log, slog.LevelInfo, obs.EventConfigLoaded, "config loaded",
 		slog.String("config_hash", cfg.Hash),
 		slog.String("airports", strings.Join(icaos, ",")),
 		slog.String("sources", strings.Join(cfg.Sources, ",")),
 		slog.Int("watch_entries", cfg.Watch.Count()),
+		slog.String("fleet", strings.Join(cfg.Fleet.Registrations(), ",")),
 		slog.String("poll_interval", cfg.PollInterval.String()),
 		slog.String("opensky_interval", a.openSkyInterval().String()),
 		slog.String("timezone", cfg.Location.String()),
@@ -442,6 +457,20 @@ func (a *app) poll(ctx context.Context) {
 					return // the other airports would be refused as well
 				}
 			}
+			lookup, ok := src.(fleetLookup)
+			if !ok || len(a.cfg.Fleet.Aircraft) == 0 {
+				return
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(requestGap):
+			}
+			started := time.Now()
+			res, err := lookupFleet(ctx, lookup, a.cfg.Fleet)
+			mu.Lock()
+			results = append(results, fetched{source: src.Name(), airport: config.Airport{ICAO: fleetFeed}, res: res, err: err, took: time.Since(started)})
+			mu.Unlock()
 		}()
 	}
 	wg.Wait()
@@ -485,6 +514,8 @@ func (a *app) poll(ctx context.Context) {
 		a.notify(ctx, n, now)
 	}
 
+	a.fleet(ctx, now)
+
 	for i, g := range gauges {
 		for _, t := range a.state.Tracks {
 			if t.Airport == g.Airport && t.Phase == engine.PhaseApproaching {
@@ -497,6 +528,177 @@ func (a *app) poll(ctx context.Context) {
 
 	obs.Log(a.log, slog.LevelDebug, obs.EventCycleCompleted, "cycle completed",
 		slog.Int("sources_polled", len(due)), slog.Int("tracks", len(a.state.Tracks)))
+}
+
+// fleetLookup is a source that can find single aircraft wherever they are.
+type fleetLookup interface {
+	Lookup(ctx context.Context, by string, values []string) (source.Result, error)
+}
+
+// lookupFleet asks a source for the aircraft of the fleet: by registration,
+// and by ICAO address for those that have one configured, because the
+// aircraft database of a source does not know every registration.
+func lookupFleet(ctx context.Context, src fleetLookup, fleet config.Fleet) (source.Result, error) {
+	var regs, hexes []string
+	for _, e := range fleet.Aircraft {
+		if e.Hex != "" {
+			hexes = append(hexes, e.Hex)
+		} else {
+			regs = append(regs, e.Reg)
+		}
+	}
+	out := source.Result{Credits: -1}
+	for i, q := range []struct {
+		by     string
+		values []string
+	}{{source.ByRegistration, regs}, {source.ByHex, hexes}} {
+		if len(q.values) == 0 {
+			continue
+		}
+		if i > 0 && len(regs) > 0 {
+			select {
+			case <-ctx.Done():
+				return out, ctx.Err()
+			case <-time.After(requestGap):
+			}
+		}
+		res, err := src.Lookup(ctx, q.by, q.values)
+		if err != nil {
+			return out, err
+		}
+		out.Aircraft = append(out.Aircraft, res.Aircraft...)
+	}
+	return out, nil
+}
+
+// fleetInput merges what the sources know about the fleet.
+func (a *app) fleetInput(now time.Time) engine.FleetInput {
+	var groups []aircraft.Group
+	for _, name := range a.cfg.Sources {
+		f, ok := a.feeds[name][fleetFeed]
+		if !ok || now.Sub(f.at) > a.maxAge(name) {
+			continue
+		}
+		groups = append(groups, aircraft.Group{Source: name, Aircraft: aircraft.Fresh(f.aircraft, now, a.maxAge(name))})
+	}
+	in := engine.FleetInput{Covered: len(groups) > 0, Seen: map[string]aircraft.Aircraft{}}
+	for _, ac := range aircraft.Merge(groups) {
+		if e, ok := a.cfg.Fleet.Find(ac); ok && ac.HasPos {
+			in.Seen[e.Key()] = ac
+		}
+	}
+	return in
+}
+
+// fleet follows the aircraft of the fleet: it records their flights as log
+// lines and metrics and pushes landings away from home.
+func (a *app) fleet(ctx context.Context, now time.Time) {
+	if len(a.cfg.Fleet.Aircraft) == 0 && len(a.state.Fleet) == 0 {
+		return
+	}
+	next, events := engine.EvaluateFleet(a.state, a.cfg, a.fleetInput(now), now)
+	a.state = next
+	for _, e := range events {
+		a.logFlight(e)
+	}
+
+	for _, key := range slices.Sorted(maps.Keys(a.state.Fleet)) {
+		t := a.state.Fleet[key]
+		if t.Pending == nil {
+			continue
+		}
+		entry, _ := a.cfg.Fleet.Find(aircraft.Aircraft{Reg: t.Reg})
+		attrs := []slog.Attr{
+			slog.String("kind", obs.KindAwayLanding),
+			slog.String("airport", t.Pending.To),
+			slog.String("hex", t.Pending.Hex),
+			slog.String("registration", t.Reg),
+			slog.String("flight_id", t.Pending.ID),
+		}
+		if a.send(ctx, obs.KindAwayLanding, "", awayLandingMessage(entry, *t.Pending, a.cfg), attrs) != obs.ResultFailed {
+			a.state.SettleFleet(key)
+		}
+	}
+
+	gauges := make([]obs.FleetGauge, 0, len(a.cfg.Fleet.Aircraft))
+	for _, e := range a.cfg.Fleet.Aircraft {
+		t := a.state.Fleet[e.Key()]
+		gauges = append(gauges, obs.FleetGauge{
+			Registration: e.Reg,
+			Airborne:     t.InFlight,
+			Received:     t.HasLast && now.Sub(t.Last.SeenAt) <= maxAgeADSB+a.cfg.PollInterval,
+			AltFt:        t.Last.AltFt,
+			SpeedKt:      t.Last.GroundSpeedKt,
+		})
+	}
+	a.met.PublishFleet(gauges, 3*a.cfg.PollInterval+30*time.Second)
+}
+
+// logFlight writes the logbook of the fleet. A dashboard builds the list of
+// flights from "flight.ended" and the track on the map from "flight.position".
+func (a *app) logFlight(e engine.FlightEvent) {
+	ac, f := e.Aircraft, e.Flight
+	attrs := []slog.Attr{
+		slog.String("registration", e.Entry.Reg),
+		slog.String("flight_id", f.ID),
+	}
+	position := []slog.Attr{
+		slog.Float64("lat", round5(ac.Lat)),
+		slog.Float64("lon", round5(ac.Lon)),
+	}
+	identity := []slog.Attr{
+		slog.String("name", e.Entry.Name),
+		slog.String("hex", ac.Hex),
+		slog.String("type", ac.Type),
+		slog.String("callsign", ac.Callsign),
+		slog.String("from", f.From),
+		slog.String("from_name", fieldLabel(f.From)),
+		slog.Bool("from_assumed", f.FromAssumed),
+	}
+
+	switch e.Kind {
+	case engine.FlightStarted:
+		attrs = append(append(attrs, identity...), position...)
+		obs.Log(a.log, slog.LevelInfo, obs.EventFlightStarted, "fleet aircraft took off",
+			append(attrs, slog.Time("started", f.Start), slog.String("sources", strings.Join(ac.Sources, ",")))...)
+	case engine.FlightPosition:
+		attrs = append(attrs, position...)
+		if ac.HasAlt {
+			attrs = append(attrs, slog.Int("altitude_ft", ac.AltFt))
+		}
+		if ac.HasSpeed {
+			attrs = append(attrs, slog.Float64("ground_speed_kt", round1(ac.GroundSpeedKt)))
+		}
+		if ac.HasVRate {
+			attrs = append(attrs, slog.Int("vertical_rate_fpm", ac.VRateFPM))
+		}
+		// The time of the position, which is a little older than the line.
+		obs.Log(a.log, slog.LevelInfo, obs.EventFlightPosition, "fleet aircraft position",
+			append(attrs, slog.Time("seen_at", ac.SeenAt), slog.Bool("on_ground", ac.OnGround))...)
+	case engine.FlightEnded:
+		a.met.CountFlight(e.Entry.Reg, string(f.Outcome), f.Duration(f.End))
+		attrs = append(append(attrs, identity...),
+			slog.String("to", f.To),
+			slog.String("to_name", fieldLabel(f.To)),
+			slog.String("outcome", string(f.Outcome)),
+			slog.Bool("away", f.Away),
+			slog.Time("started", f.Start),
+			slog.Time("ended", f.End),
+			slog.Int64("duration_seconds", int64(f.Duration(f.End)/time.Second)),
+			slog.Float64("distance_nm", round1(f.DistanceNM)),
+			slog.Int("max_altitude_ft", f.MaxAltFt),
+			slog.Int("points", f.Points))
+		obs.Log(a.log, slog.LevelInfo, obs.EventFlightEnded, "fleet aircraft flight ended", append(attrs, position...)...)
+	}
+}
+
+// fieldLabel is "EDVH Hodenhagen" for an airfield of the built-in table. An
+// empty code, for a place the table does not know, stays empty.
+func fieldLabel(icao string) string {
+	if f, ok := airports.Lookup(icao); ok && icao != "" {
+		return f.Label()
+	}
+	return icao
 }
 
 // assemble merges the latest data of the sources per airport.
@@ -802,3 +1004,5 @@ func (a *app) logEvent(e engine.Event) {
 }
 
 func round1(f float64) float64 { return float64(int(f*10+0.5)) / 10 }
+
+func round5(f float64) float64 { return math.Round(f*1e5) / 1e5 }

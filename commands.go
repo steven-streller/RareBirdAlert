@@ -120,7 +120,81 @@ func cmdNow(set settings) int {
 		}
 		_ = w.Flush()
 	}
+	if len(cfg.Fleet.Aircraft) > 0 && !printFleet(ctx, set, cfg, sources) {
+		exit = 1
+	}
 	return exit
+}
+
+// printFleet shows where the aircraft of the fleet are right now. It returns
+// false if a source failed.
+func printFleet(ctx context.Context, set settings, cfg *config.Config, sources map[string]source.Source) bool {
+	home := "kein Heimatplatz"
+	if len(cfg.Fleet.Home) > 0 {
+		home = "Heimatplatz " + strings.Join(cfg.Fleet.Home, ", ")
+	}
+	fmt.Fprintf(set.Stdout, "\nFlotte, %s\n", home)
+
+	ok := true
+	var groups []aircraft.Group
+	for _, name := range cfg.Sources {
+		lookup, can := sources[name].(fleetLookup)
+		if !can {
+			continue
+		}
+		time.Sleep(requestGap)
+		res, err := lookupFleet(ctx, lookup, cfg.Fleet)
+		if err != nil {
+			fmt.Fprintf(set.Stdout, "  %s: FEHLER %s\n", name, err)
+			ok = false
+			continue
+		}
+		fmt.Fprintf(set.Stdout, "  %s: %d von %d empfangen\n", name, len(res.Aircraft), len(cfg.Fleet.Aircraft))
+		groups = append(groups, aircraft.Group{Source: name, Aircraft: res.Aircraft})
+	}
+	if len(groups) == 0 {
+		if ok {
+			fmt.Fprintln(set.Stdout, "  keine der Quellen in sources kann einzelne Flugzeuge suchen (adsb.lol, airplanes.live)")
+		}
+		// Without an answer nothing can be said about any aircraft.
+		return false
+	}
+
+	seen := map[string]aircraft.Aircraft{}
+	for _, ac := range aircraft.Merge(groups) {
+		if e, found := cfg.Fleet.Find(ac); found {
+			seen[e.Key()] = ac
+		}
+	}
+	w := tabwriter.NewWriter(set.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "\n  KENNZ.\tNAME\tHEX\tSTAND\tHÖHE ft\tTEMPO kn\tNÄCHSTER PLATZ")
+	for _, e := range cfg.Fleet.Aircraft {
+		ac, found := seen[e.Key()]
+		if !found {
+			fmt.Fprintf(w, "  %s\t%s\t%s\tnicht empfangen\t–\t–\t–\n", e.Reg, orDash(e.Name), orDash(e.Hex))
+			continue
+		}
+		alt, speed, field := "–", "–", "–"
+		switch {
+		case ac.OnGround:
+			alt = "Boden"
+		case ac.HasAlt:
+			alt = fmt.Sprint(ac.AltFt)
+		}
+		if ac.HasSpeed {
+			speed = fmt.Sprintf("%.0f", ac.GroundSpeedKt)
+		}
+		stand := "empfangen, ohne Position"
+		if ac.HasPos {
+			stand = "empfangen"
+			if f, dist, near := airports.Nearest(ac.Lat, ac.Lon, 50); near {
+				field = fmt.Sprintf("%s (%.1f NM)", f.Label(), dist)
+			}
+		}
+		fmt.Fprintf(w, "  %s\t%s\t%s\t%s\t%s\t%s\t%s\n", e.Reg, orDash(e.Name), ac.Hex, stand, alt, speed, field)
+	}
+	_ = w.Flush()
+	return ok
 }
 
 // cmdAirports lists the configured airports, or looks up the given ICAO codes

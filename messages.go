@@ -94,6 +94,47 @@ func aircraftMessage(n engine.Notification, cfg *config.Config, photo *photos.Ph
 	return msg
 }
 
+// awayLandingMessage builds the push for a fleet aircraft that landed
+// somewhere else than at home.
+//
+//	Title: "D-EZIP in EDVE Braunschweig-Wolfsburg gelandet"
+//	Body:  name, where from, flight time and distance, when
+func awayLandingMessage(e config.FleetAircraft, f engine.Flight, cfg *config.Config) pushover.Message {
+	landed := "gelandet"
+	if f.Outcome == engine.OutcomePresumed {
+		landed = "vermutlich gelandet"
+	}
+	title := e.Reg + " auswärts " + landed
+	if f.To != "" {
+		title = e.Reg + " in " + fieldLabel(f.To) + " " + landed
+	}
+
+	from := labelled("Von", fieldLabel(f.From))
+	if f.FromAssumed {
+		from = labelled("Vermutlich von", fieldLabel(f.From))
+	}
+	lines := []string{
+		e.Name,
+		from,
+		fmt.Sprintf("Flugzeit %s · %s NM", germanDuration(f.Duration(f.End)), germanFloat(f.DistanceNM)),
+		fmt.Sprintf("Gelandet um %s Uhr", f.End.In(cfg.Location).Format("15:04")),
+	}
+	if f.Outcome == engine.OutcomePresumed {
+		lines = append(lines, "Signal knapp über dem Boden verloren")
+	}
+	msg := pushover.Message{
+		Title:    title,
+		Body:     joinNonEmpty("\n", lines...),
+		Priority: cfg.NotifyAway.Priority,
+		Sound:    cfg.NotifyAway.Sound,
+		TTL:      landedTTL,
+	}
+	if f.Hex != "" {
+		msg.URL, msg.URLTitle = mapURL(f.Hex), "Live-Karte"
+	}
+	return msg
+}
+
 // mapURL opens the aircraft on adsb.lol's map.
 func mapURL(hex string) string { return "https://adsb.lol/?icao=" + hex }
 

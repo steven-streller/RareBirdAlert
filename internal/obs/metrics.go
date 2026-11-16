@@ -24,6 +24,11 @@ const (
 	MetricAirportWatched    = "rarebirdalert_airport_watched_aircraft"
 	MetricApproaches        = "rarebirdalert_approaches_total"
 	MetricLandings          = "rarebirdalert_landings_total"
+	MetricFleetAirborne     = "rarebirdalert_fleet_airborne"
+	MetricFleetAltitude     = "rarebirdalert_fleet_altitude_feet"
+	MetricFleetSpeed        = "rarebirdalert_fleet_ground_speed_knots"
+	MetricFleetFlights      = "rarebirdalert_fleet_flights_total"
+	MetricFleetFlightTime   = "rarebirdalert_fleet_flight_seconds_total"
 	MetricNotifications     = "rarebirdalert_notifications_total"
 	MetricPhotoLookups      = "rarebirdalert_photo_lookups_total"
 	MetricConfigReloadOK    = "rarebirdalert_config_last_reload_successful"
@@ -53,6 +58,11 @@ var Catalog = []MetricInfo{
 	{MetricAirportWatched, "gauge", "Aircraft inside the geofence of an airport that match the watchlist."},
 	{MetricApproaches, "counter", "Approaches of watched aircraft by airport and matching rule, whether or not a push was sent."},
 	{MetricLandings, "counter", "Landings of watched aircraft by airport and detection (observed on the ground, presumed after losing the signal)."},
+	{MetricFleetAirborne, "gauge", "1 while an aircraft of the fleet is in a flight, 0 otherwise."},
+	{MetricFleetAltitude, "gauge", "Barometric altitude in feet of a fleet aircraft that is in flight and being received."},
+	{MetricFleetSpeed, "gauge", "Ground speed in knots of a fleet aircraft that is in flight and being received."},
+	{MetricFleetFlights, "counter", "Completed flights of the fleet by aircraft and outcome (landed = seen on the ground, presumed = signal lost low at an airfield, lost = signal lost elsewhere)."},
+	{MetricFleetFlightTime, "counter", "Flight time of the completed flights of a fleet aircraft in seconds."},
 	{MetricNotifications, "counter", "Push notification attempts by kind and result (sent, failed = will be retried, rejected = given up, dry_run)."},
 	{MetricPhotoLookups, "counter", "Photo lookups at Planespotters.net by result."},
 	{MetricConfigReloadOK, "gauge", "1 if the current content of the config file is valid, 0 if it was rejected."},
@@ -69,6 +79,7 @@ const (
 	KindOutage      = "outage"
 	KindRecovery    = "recovery"
 	KindConfigError = "config_error"
+	KindAwayLanding = "away_landing"
 
 	ResultSent     = "sent"
 	ResultFailed   = "failed"
@@ -85,7 +96,7 @@ const ResultOK = "ok"
 
 var (
 	airportKinds        = []string{KindApproach, KindLanded}
-	systemKinds         = []string{KindOutage, KindRecovery, KindConfigError}
+	systemKinds         = []string{KindOutage, KindRecovery, KindConfigError, KindAwayLanding}
 	notificationResults = []string{ResultSent, ResultFailed, ResultRejected, ResultDryRun}
 	pollBuckets         = []float64{0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15}
 )
@@ -103,6 +114,21 @@ type SourceGauge struct {
 	Source   string
 	Airport  string
 	Aircraft int
+}
+
+// FleetGauge is the view of one aircraft of the fleet.
+type FleetGauge struct {
+	Registration string
+	Airborne     bool
+	// Received says that AltFt and SpeedKt describe the aircraft right now.
+	Received bool
+	AltFt    int
+	SpeedKt  float64
+}
+
+type fleetView struct {
+	fleet      []FleetGauge
+	validUntil time.Time
 }
 
 type view struct {
@@ -123,7 +149,8 @@ type Metrics struct {
 	configWatch    *metrics.Gauge
 	credits        *metrics.Gauge
 
-	view atomic.Pointer[view]
+	view      atomic.Pointer[view]
+	fleetView atomic.Pointer[fleetView]
 }
 
 // NewMetrics creates the metrics.
@@ -178,6 +205,28 @@ func (m *Metrics) WatchAirports(icaos, rules []string) {
 			m.set.GetOrCreateCounter(landingCounter(a, d))
 		}
 	}
+}
+
+// WatchFleet creates the per-aircraft counters at 0.
+func (m *Metrics) WatchFleet(registrations, outcomes []string) {
+	for _, reg := range registrations {
+		for _, o := range outcomes {
+			m.set.GetOrCreateCounter(flightCounter(reg, o))
+		}
+		m.set.GetOrCreateFloatCounter(flightTimeCounter(reg))
+	}
+}
+
+// CountFlight records a completed flight of a fleet aircraft.
+func (m *Metrics) CountFlight(registration, outcome string, duration time.Duration) {
+	m.set.GetOrCreateCounter(flightCounter(registration, outcome)).Inc()
+	m.set.GetOrCreateFloatCounter(flightTimeCounter(registration)).Add(max(duration.Seconds(), 0))
+}
+
+// PublishFleet replaces the fleet gauges. Like the airport gauges they are
+// exported for the given duration only.
+func (m *Metrics) PublishFleet(fleet []FleetGauge, validFor time.Duration) {
+	m.fleetView.Store(&fleetView{fleet: fleet, validUntil: m.now().Add(validFor)})
 }
 
 // WatchPhotos creates the photo counters at 0.
@@ -265,7 +314,43 @@ func (m *Metrics) WritePrometheus(w io.Writer) {
 	metrics.WriteProcessMetrics(w)
 }
 
+func (m *Metrics) writeFleet(w io.Writer) {
+	v := m.fleetView.Load()
+	if v == nil || len(v.fleet) == 0 || m.now().After(v.validUntil) {
+		return
+	}
+	metrics.WriteMetadataIfNeeded(w, MetricFleetAirborne, "gauge")
+	for _, g := range v.fleet {
+		n := 0
+		if g.Airborne {
+			n = 1
+		}
+		fmt.Fprintf(w, "%s{registration=%s} %d\n", MetricFleetAirborne, quote(g.Registration), n)
+	}
+	families := []struct {
+		name  string
+		value func(FleetGauge) float64
+	}{
+		{MetricFleetAltitude, func(g FleetGauge) float64 { return float64(g.AltFt) }},
+		{MetricFleetSpeed, func(g FleetGauge) float64 { return g.SpeedKt }},
+	}
+	for _, f := range families {
+		header := false
+		for _, g := range v.fleet {
+			if !g.Airborne || !g.Received {
+				continue
+			}
+			if !header {
+				metrics.WriteMetadataIfNeeded(w, f.name, "gauge")
+				header = true
+			}
+			fmt.Fprintf(w, "%s{registration=%s} %g\n", f.name, quote(g.Registration), f.value(g))
+		}
+	}
+}
+
 func (m *Metrics) writeView(w io.Writer) {
+	m.writeFleet(w)
 	v := m.view.Load()
 	if v == nil || m.now().After(v.validUntil) {
 		return
@@ -312,6 +397,14 @@ func approachCounter(airport, rule string) string {
 
 func landingCounter(airport, detection string) string {
 	return fmt.Sprintf(`%s{airport=%s,detection=%s}`, MetricLandings, quote(airport), quote(detection))
+}
+
+func flightCounter(registration, outcome string) string {
+	return fmt.Sprintf(`%s{registration=%s,outcome=%s}`, MetricFleetFlights, quote(registration), quote(outcome))
+}
+
+func flightTimeCounter(registration string) string {
+	return fmt.Sprintf(`%s{registration=%s}`, MetricFleetFlightTime, quote(registration))
 }
 
 func photoCounter(result string) string {
