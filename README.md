@@ -5,6 +5,10 @@ RareBirdAlert beobachtet den Luftraum um deutsche Flughäfen und schickt eine
 ist, etwa die Beluga in Bremen. Die Nachricht enthält, wenn vorhanden, ein Foto von
 [Planespotters.net](https://www.planespotters.net/).
 
+Daneben führt es ein Flugbuch für eine eigene **Flotte**, etwa die Flugzeuge eines Vereins: Es verfolgt sie,
+wo immer sie fliegen, und schreibt Start, Ziel, Dauer und die Flugspur als Logs und Metriken mit, siehe
+[Flotte](#flotte).
+
 Es ist ein einzelnes statisches Go-Binary in einem `FROM scratch`-Image von unter 8 MB, mit strukturierten
 Logs für Loki und einem `/metrics`-Endpunkt für Prometheus.
 
@@ -89,6 +93,66 @@ Bei Flaggen und Neuheiten steht der Grund in der Zeile "Treffer", etwa "Treffer:
 Dazu kommen Meldungen über RareBirdAlert selbst: `config.yaml fehlerhaft`, `Datenquellen nicht erreichbar`
 und `Datenquellen wieder erreichbar`.
 
+## Flotte
+
+Unter `fleet` stehen Flugzeuge, die RareBirdAlert überall verfolgt, nicht nur um die Flughäfen aus
+`airports`:
+
+```yaml
+fleet:
+  home: EDVH                   # Heimatplatz, auch eine Liste
+  aircraft:
+    - registration: D-EZIP
+      name: Piper Archer III
+    - registration: D-EUAC
+      name: Aquila AT01
+```
+
+Jeder Zyklus fragt adsb.lol (und airplanes.live, wenn es in `sources` steht) in einem Abruf nach allen
+Kennzeichen. OpenSky wird für die Flotte nicht benutzt. `rarebirdalert now` zeigt, welche Flugzeuge gerade
+empfangen werden.
+
+Kleinflugzeuge melden selten, dass sie am Boden sind, und knapp über dem Boden werden sie oft gar nicht
+empfangen. Ein Flug wird deshalb so abgeleitet:
+
+| Begriff | Bedeutung |
+|---|---|
+| Start | Das Flugzeug ist in zwei Abrufen hintereinander mindestens 40 kn schnell. Der Flug beginnt mit dem ersten der beiden. |
+| Startplatz | Der nächste Platz der eingebauten Liste, höchstens 3 NM entfernt. Wird das Flugzeug erst unterwegs entdeckt, gilt der Platz der letzten Landung, im Log mit `from_assumed`. |
+| Gelandet (`landed`) | 45 Sekunden lang am Boden gemeldet oder langsamer als 30 kn. Zielplatz ist der nächste Platz im Umkreis von 3 NM. |
+| Vermutlich gelandet (`presumed`) | Fünf Minuten nicht empfangen, zuletzt höchstens 3 NM von einem Platz und höchstens 1000 ft darüber. |
+| Verloren (`lost`) | Eine Stunde nicht empfangen, ohne dass ein Platz in der Nähe war. Der Flug wird ohne Ziel abgeschlossen. |
+
+Was daraus folgt:
+
+- **Platzrunden sind ein Flug.** Ein Touch-and-go ist kürzer als 45 Sekunden und eine Platzrunde kürzer als
+  fünf Minuten. Erst die Abschlusslandung beendet den Flug, Start- und Zielplatz sind dann derselbe.
+- **Push nur auswärts.** Landet ein Flugzeug an einem anderen Platz als `home`, kommt eine Push mit Platz,
+  Flugzeit und Strecke (`notify.away_landing`). Ohne `home` kommt keine. Ein verlorener Flug löst nichts aus.
+- **Plätze kommen aus der eingebauten Liste.** Im Ausland oder auf einem Platz, der dort fehlt, bleibt `to`
+  leer. Eine solche Landung gilt als auswärts.
+- **Ohne Position kein Flug.** Ein Flugzeug mit Mode-S-Transponder ohne ADS-B Out hat nur dann eine
+  Position, wenn genug Empfänger es gleichzeitig hören (MLAT). In Bodennähe und abseits der Ballungsräume
+  reicht das oft nicht: Flüge beginnen dann zu spät, enden als `presumed` oder fehlen ganz.
+- **Das Kennzeichen braucht den Bindestrich.** Die Quellen finden `D-EZIP`, aber nicht `DEZIP`. Bei
+  deutschen Kennzeichen setzt RareBirdAlert ihn selbst. Kennt die Datenbank der Quelle ein Kennzeichen nicht,
+  hilft `hex` mit der ICAO24-Adresse.
+
+Das Flugbuch steht in den Logs (`flight.started`, `flight.position`, `flight.ended`), für Grafana also in
+Loki. Wie weit es zurückreicht, bestimmt die Aufbewahrung dort.
+
+```logql
+# Flugbuch: ein Eintrag je Flug
+{container="rarebirdalert"} | json | event="flight.ended"
+  | line_format "{{.registration}}: {{.from_name}} → {{.to_name}}, {{.duration_seconds}} s, {{.distance_nm}} NM"
+
+# Flugspur eines Flugzeugs für ein Geomap-Panel (Felder lat und lon)
+{container="rarebirdalert"} | json | event="flight.position" | registration="D-EZIP"
+
+# Flugstunden je Flugzeug im gewählten Zeitraum
+sum by (registration) (sum_over_time({container="rarebirdalert"} | json | event="flight.ended" | unwrap duration_seconds [$__range])) / 3600
+```
+
 ## Datenquellen
 
 | Quelle | Abfrage | Zugang | Liefert |
@@ -155,7 +219,7 @@ Ohne State-Datei meldet RareBirdAlert nach einem Neustart laufende Anflüge erne
 | Kommando | Zweck |
 |---|---|
 | `rarebirdalert` | Daemon |
-| `rarebirdalert now` | fragt alle Quellen einmal ab und zeigt die Flugzeuge in den Geofences mit Treffer |
+| `rarebirdalert now` | fragt alle Quellen einmal ab und zeigt die Flugzeuge in den Geofences mit Treffer, dazu die Flotte |
 | `rarebirdalert airports [ICAO…]` | konfigurierte Flughäfen, oder die genannten aus der eingebauten Liste |
 | `rarebirdalert test [--hex HEX]` | Test-Push, prüft die Zugangsdaten; mit `--hex` samt Foto dieses Flugzeugs |
 | `rarebirdalert health` | fragt `/healthz` des laufenden Daemons ab, für Healthchecks ohne Shell und curl |
@@ -174,6 +238,8 @@ Metriken zeigen, dass etwas passiert ist. Logs zeigen, warum.
 | Warum kam eine Push oder keine? | Logs `aircraft.approach` und `aircraft.landed` mit `decision` und `reason` |
 | Ist meine Config aktiv und gültig? | `rarebirdalert_config_last_reload_successful`, Logs `config.loaded` und `config.invalid` |
 | Wer ist wann gelandet? | Logs `aircraft.landed` |
+| Wohin ist die Flotte geflogen, und wie lange? | Logs `flight.ended` und `flight.position`, `rarebirdalert_fleet_flights_total`, `rarebirdalert_fleet_flight_seconds_total` |
+| Ist gerade ein Vereinsflugzeug in der Luft? | `rarebirdalert_fleet_airborne` |
 
 ### Metriken
 
@@ -191,6 +257,11 @@ Metriken zeigen, dass etwas passiert ist. Logs zeigen, warum.
 | `rarebirdalert_airport_approaching` | Gauge | `airport` | Flugzeuge der Watchlist im Anflug |
 | `rarebirdalert_approaches_total` | Counter | `airport`, `rule` | erkannte Anflüge, auch wenn der Cooldown die Push verhindert hat |
 | `rarebirdalert_landings_total` | Counter | `airport`, `detection` | erkannte Landungen |
+| `rarebirdalert_fleet_airborne` | Gauge | `registration` | 1, solange ein Flugzeug der Flotte in einem Flug ist |
+| `rarebirdalert_fleet_altitude_feet` | Gauge | `registration` | barometrische Höhe, nur im Flug und solange das Flugzeug empfangen wird |
+| `rarebirdalert_fleet_ground_speed_knots` | Gauge | `registration` | Geschwindigkeit über Grund, ebenso |
+| `rarebirdalert_fleet_flights_total` | Counter | `registration`, `outcome` | abgeschlossene Flüge der Flotte |
+| `rarebirdalert_fleet_flight_seconds_total` | Counter | `registration` | Flugzeit der abgeschlossenen Flüge |
 | `rarebirdalert_notifications_total` | Counter | `kind`, `result`, `airport` | Push-Versuche |
 | `rarebirdalert_photo_lookups_total` | Counter | `result` | Foto-Abfragen |
 | `rarebirdalert_config_last_reload_successful` | Gauge | – | 1 = aktuelle config.yaml ist gültig |
@@ -204,11 +275,13 @@ Labelwerte:
 
 - `source`: `adsb.lol`, `airplanes.live`, `opensky`.
 - `result` bei Abrufen: `ok`, `timeout`, `network`, `http_status`, `rate_limited`, `invalid_response`.
-- `kind`: `approach`, `landed`, dazu `outage`, `recovery` und `config_error` für Meldungen über RareBirdAlert
-  selbst (diese tragen kein `airport`-Label).
+- `kind`: `approach`, `landed`, dazu `away_landing` für die Flotte sowie `outage`, `recovery` und
+  `config_error` für Meldungen über RareBirdAlert selbst (diese vier tragen kein `airport`-Label).
 - `result` bei Pushes: `sent` (angenommen), `failed` (vorübergehender Fehler, wird wiederholt), `rejected`
   (endgültig abgelehnt, wird nicht wiederholt), `dry_run`.
 - `rule`: `hex`, `registration`, `type`, `callsign`, `operator`, `military`, `interesting`, `novelty`.
+- `outcome`: `landed`, `presumed`, `lost`, siehe [Flotte](#flotte).
+- `registration`: die Kennzeichen aus `fleet`.
 - `detection`: `observed` (am Boden gesehen), `presumed` (Signal knapp über dem Boden verloren).
 - `result` bei Fotos: `found`, `not_found`, `error`, `cached`.
 
@@ -220,7 +293,10 @@ Was du wissen solltest:
 - **Counter beginnen bei 0**, für jede bekannte Kombination von Labels. `increase()` stimmt damit ab dem
   ersten Ereignis.
 - **Labels kommen nur aus festen Mengen.** Hex, Kennzeichen und Typ stehen deshalb in den Logs, nicht in
-  Metriken.
+  Metriken. Die Ausnahme sind die Kennzeichen der Flotte: Sie stehen in der Config und sind damit eine
+  feste Menge.
+- **Abrufe für die Flotte** zählen bei `rarebirdalert_source_polls_total` mit. In den Logs `source.polled`
+  und `source.poll_failed` steht bei ihnen `fleet` im Feld `airport`.
 
 Ausdrücke, die sich als Alarme eignen:
 
@@ -247,7 +323,9 @@ ohne Umbenennung.
 - `msg`: kurzer englischer Klartext
 - `event`: stabiler Name des Ereignisses, darauf filterst du
 
-Auf `info` stehen nur Zustandswechsel und Entscheidungen. Jeden einzelnen Abruf zeigt erst `debug`. Token und
+Auf `info` stehen nur Zustandswechsel und Entscheidungen. Jeden einzelnen Abruf zeigt erst `debug`. Die
+Ausnahme ist `flight.position`: Solange ein Flugzeug der Flotte fliegt, kommt je Abruf eine Zeile, also rund
+240 je Flugstunde. Token und
 User-Key werden nie geloggt.
 
 | `event` | Pegel | Wichtige Felder |
@@ -259,7 +337,7 @@ User-Key werden nie geloggt.
 | `app.warning` | warn | `reason` |
 | `http.listening` | info | `http_addr` |
 | `http.error` | warn, error | `error` |
-| `config.loaded` | info | `config_hash`, `airports`, `sources`, `watch_entries`, `poll_interval`, `reload` |
+| `config.loaded` | info | `config_hash`, `airports`, `sources`, `watch_entries`, `fleet`, `poll_interval`, `reload` |
 | `config.invalid` | error | `error`, `config_hash`, `active_config_kept` |
 | `state.restored` | info | `tracks`, `discarded` |
 | `state.load_failed`, `state.save_failed` | warn | `error` |
@@ -274,6 +352,9 @@ User-Key werden nie geloggt.
 | `aircraft.go_around` | info | wie `aircraft.approach`, ohne Entscheidung |
 | `aircraft.departed` | info | wie `aircraft.approach`, ohne Entscheidung |
 | `aircraft.lost` | info | wie `aircraft.approach`, ohne Entscheidung |
+| `flight.started` | info | `registration`, `flight_id`, `name`, `hex`, `type`, `callsign`, `from`, `from_name`, `from_assumed`, `lat`, `lon`, `started`, `sources` |
+| `flight.position` | info | `registration`, `flight_id`, `lat`, `lon`, `altitude_ft`, `ground_speed_kt`, `vertical_rate_fpm`, `seen_at`, `on_ground` |
+| `flight.ended` | info | wie `flight.started`, dazu `to`, `to_name`, `outcome`, `away`, `ended`, `duration_seconds`, `distance_nm`, `max_altitude_ft`, `points` |
 | `notification.sent` | info | `kind`, `airport`, `hex`, `title`, `photo`, `pushover_request`, `duration_ms` |
 | `notification.failed` | warn | `kind`, `airport`, `error`, `http_status`, `duration_ms` |
 | `notification.rejected` | error | `kind`, `airport`, `error`, `http_status`, `duration_ms` |
@@ -387,7 +468,7 @@ Request:
 2. **Image**: baut für amd64, startet das Image einmal und prüft seine Größe gegen ein Budget von 10 MB. Danach
    baut er für amd64 und arm64.
 
-Veröffentlicht wird nach `ghcr.io/<besitzer>/rarebirdalert`, und nur bei Pushes:
+Veröffentlicht wird nach `ghcr.io/<besitzer>/rarebirdalert`, bei Pull Requests nie:
 
 | Auslöser | Tags des Images | `rarebirdalert version` |
 |---|---|---|
@@ -395,9 +476,30 @@ Veröffentlicht wird nach `ghcr.io/<besitzer>/rarebirdalert`, und nur bei Pushes
 | Tag `v1.2.3` | `1.2.3`, `1.2`, `latest` | `1.2.3` |
 | Pull Request | keine, es wird nur gebaut | – |
 
+**Releases.** Ein Release ist ein Tag `v1.2.3` mit GitHub-Release und Image. Zusammenführen und
+Veröffentlichen sind getrennt:
+
+- **Dependabot** bündelt Actions, Go-Module und Basis-Image in einem Pull Request je Woche. Bestehen Tests
+  und Image-Build, führt der Workflow ihn zusammen. Sonst bleibt er offen.
+- **Jede Nacht** (02:17 UTC) prüft der Workflow, ob `main` seit dem letzten Tag neue Commits hat. Wenn ja,
+  testet er `main`, veröffentlicht das Image mit der nächsten Patch-Version und legt danach Tag und Release
+  an. Wenn nein, endet er nach wenigen Sekunden. Mehrere Updates eines Tages ergeben so ein Release.
+- **Alles auf `main` wird veröffentlicht**, auch eigene Commits. Unfertiges gehört auf einen Branch.
+- **Von Hand**, etwa für eine neue Minor- oder Major-Version: Actions → CI → „Run workflow“ auf `main` mit
+  `release` und der gewünschten Stelle, oder `gh workflow run ci.yml --ref main -f release=true -f bump=minor`.
+  Ein von Hand geschobener Tag `v1.2.3` baut wie bisher das Image, legt aber kein GitHub-Release an.
+
+Das Zusammenführen durch den Workflow löst keinen Durchlauf für `main` aus. Das Image `edge` entsteht deshalb
+bei eigenen Pushes und bei jedem Release, nicht nach jedem Dependabot-Update. GitHub schaltet geplante
+Workflows in öffentlichen Repos nach 60 Tagen ohne Aktivität ab und meldet das per E-Mail; unter Actions lässt
+sich der Workflow wieder einschalten.
+
+Wer das Image mit einer festen Version betreibt (`ghcr.io/<besitzer>/rarebirdalert:1.2.3` statt `edge`),
+bekommt neue Versionen von Renovate oder einem ähnlichen Werkzeug als Pull Request vorgeschlagen.
+
 Nichts, was der Build heranzieht, steht auf einer beweglichen Version wie `latest`: Actions sind auf Commits
-festgelegt, das Basis-Image auf Tag und Digest, Go-Module auf Version und Prüfsumme. Dependabot schlägt
-Aktualisierungen vor. Runner-Image, buildx und BuildKit hebst du von Hand an.
+festgelegt, das Basis-Image auf Tag und Digest, Go-Module auf Version und Prüfsumme. Dependabot hebt sie an.
+Runner-Image, buildx und BuildKit hebst du von Hand an.
 
 ## Entwicklung
 
@@ -417,7 +519,7 @@ RAREBIRDALERT_CONFIG=config/config.yaml RAREBIRDALERT_STATE= RAREBIRDALERT_LOG_F
 | `internal/source` | Clients von adsb.lol / airplanes.live (ein Client) und OpenSky |
 | `internal/photos` | Planespotters-Client mit Zwischenspeicher |
 | `internal/config` | `config.yaml` laden und prüfen, Watchlist |
-| `internal/engine` | Anflug- und Landungserkennung ohne I/O, dazu die State-Datei |
+| `internal/engine` | Anflug- und Landungserkennung und die Flugerkennung der Flotte ohne I/O, dazu die State-Datei |
 | `internal/pushover` | Pushover-Client mit Fehlerklassifikation und Bild-Anhang |
 | `internal/obs` | Log-Format, Ereignisnamen, Metriken, HTTP-Endpunkte |
 | `main` | Abruf-Schleife, Push-Texte, Kommandos |

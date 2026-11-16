@@ -39,6 +39,19 @@ watch:
   military: true                 # alles, was die Community-Datenbank als militärisch markiert
   interesting: true              # alles, was sie als "interessant" markiert
 
+# Flotte: Flugzeuge, die überall verfolgt werden, nicht nur um die Flughäfen
+# oben. Jeder Flug landet als Logzeilen und Metriken im Flugbuch (siehe README,
+# "Flotte"). Braucht adsb.lol oder airplanes.live in sources.
+# fleet:
+#   home: EDVH                   # Heimatplatz, auch eine Liste: [EDVH, EDVE]. Eine Landung
+#                                # woanders löst eine Push aus; ohne home kommt keine.
+#   aircraft:
+#     - registration: D-EZIP     # mit Bindestrich, so wie es die Flugzeugdatenbank schreibt
+#       name: Piper Archer III   # freier Text für Pushes und Logs
+#     - registration: D-EUAC
+#       name: Aquila AT01
+#       # hex: 3d1234            # ICAO24-Adresse, wenn die Quelle das Kennzeichen nicht kennt
+
 # Neuheit: Push, wenn ein Flugzeugtyp zum ersten Mal an einem Flughafen im Anflug
 # erkannt wird. In der Lernphase wird nur mitgeschrieben, sonst wäre am ersten
 # Tag alles neu. Danach kommen Neuheiten mit notify.novelty (standardmäßig lautlos).
@@ -57,6 +70,7 @@ notify:
   approach: { priority: 0, sound: "" }    # priority -2 (lautlos) bis 1 (durchbricht Ruhezeiten)
   landed:   { priority: -1, sound: "" }
   novelty:  { priority: -1, sound: "" }   # gilt für Anflug und Landung eines neuen Typs
+  away_landing: { priority: 0, sound: "" } # Flugzeug der Flotte ist nicht am Heimatplatz gelandet
 
 cooldown: 3h                     # Pause je Flugzeug und Flughafen nach einer Push (Platzrunden, Touch-and-go)
 outage_alert_after: 15m          # Push, wenn keine Quelle so lange liefert; 0 = aus

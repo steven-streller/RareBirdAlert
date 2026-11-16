@@ -23,7 +23,7 @@ func readRepoFile(t *testing.T, name string) string {
 
 var (
 	metricName = regexp.MustCompile(`rarebirdalert_[a-z0-9_]+`)
-	eventName  = regexp.MustCompile("`((?:app|config|state|cycle|source|upstream|aircraft|notification|photo|http|library)\\.[a-z_]+)`")
+	eventName  = regexp.MustCompile("`((?:app|config|state|cycle|source|upstream|aircraft|flight|notification|photo|http|library)\\.[a-z_]+)`")
 	logEvents  = regexp.MustCompile(`event(?:=~?)"([^"]+)"`)
 )
 

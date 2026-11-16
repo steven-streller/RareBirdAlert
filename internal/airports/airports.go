@@ -56,6 +56,38 @@ func Lookup(icao string) (Airport, bool) {
 	return a, ok
 }
 
+// Nearest returns the airport of the table that is closest to the position,
+// if it is at most maxNM away.
+func Nearest(lat, lon, maxNM float64) (Airport, float64, bool) {
+	once.Do(load)
+	var (
+		best     Airport
+		bestDist float64
+		found    bool
+	)
+	for _, a := range byICAO {
+		d := DistanceNM(lat, lon, a.Lat, a.Lon)
+		if d > maxNM {
+			continue
+		}
+		// The ICAO code breaks ties, so that the answer does not depend on
+		// the order of the map.
+		if !found || d < bestDist || (d == bestDist && a.ICAO < best.ICAO) {
+			best, bestDist, found = a, d, true
+		}
+	}
+	return best, bestDist, found
+}
+
+// Label is the airport in the words of a logbook: "EDVH Hodenhagen".
+func (a Airport) Label() string {
+	name := strings.TrimSpace(strings.TrimSuffix(strings.TrimSuffix(a.Name, " Airport"), " Airfield"))
+	if name == "" || name == a.ICAO {
+		return a.ICAO
+	}
+	return a.ICAO + " " + name
+}
+
 // Count is the number of airports in the table.
 func Count() int {
 	once.Do(load)

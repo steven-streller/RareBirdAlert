@@ -31,6 +31,7 @@ type stateFile struct {
 	Tracks   map[string]Track                `json:"tracks"`
 	Seen     map[string]map[string]time.Time `json:"seen,omitempty"`
 	Learning map[string]time.Time            `json:"learning,omitempty"`
+	Fleet    map[string]FleetTrack           `json:"fleet,omitempty"`
 }
 
 // Store persists the engine state, so that a restart does not repeat
@@ -80,6 +81,7 @@ func (s *Store) Load(now time.Time) (st State, restored, discarded int, err erro
 		st.Seen[airport] = maps.Clone(types)
 	}
 	maps.Copy(st.Learning, f.Learning)
+	maps.Copy(st.Fleet, f.Fleet)
 	s.signature = signature(st)
 	s.savedAt = f.SavedAt
 	return st, restored, discarded, nil
@@ -93,7 +95,7 @@ func (s *Store) Save(st State, now time.Time) (written bool, err error) {
 	}
 	sig := signature(st)
 	if sig == s.signature && !s.savedAt.IsZero() &&
-		(len(st.Tracks) == 0 || now.Sub(s.savedAt) < heartbeat) {
+		(len(st.Tracks) == 0 && !st.fleetInFlight() || now.Sub(s.savedAt) < heartbeat) {
 		return false, nil
 	}
 	if err := s.Flush(st, now); err != nil {
@@ -108,7 +110,7 @@ func (s *Store) Flush(st State, now time.Time) error {
 	if s.path == "" {
 		return nil
 	}
-	data, err := json.MarshalIndent(stateFile{Version: stateVersion, SavedAt: now.UTC(), Tracks: st.Tracks, Seen: st.Seen, Learning: st.Learning}, "", "  ")
+	data, err := json.MarshalIndent(stateFile{Version: stateVersion, SavedAt: now.UTC(), Tracks: st.Tracks, Seen: st.Seen, Learning: st.Learning, Fleet: st.Fleet}, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -133,6 +135,14 @@ func signature(st State) string {
 	}
 	for _, airport := range slices.Sorted(maps.Keys(st.Learning)) {
 		fmt.Fprintf(&b, "learning|%s|%d;", airport, st.Learning[airport].Unix())
+	}
+	for _, key := range slices.Sorted(maps.Keys(st.Fleet)) {
+		t := st.Fleet[key]
+		pending := ""
+		if t.Pending != nil {
+			pending = t.Pending.ID
+		}
+		fmt.Fprintf(&b, "fleet|%s|%t|%s|%s|%s;", key, t.InFlight, t.Flight.ID, pending, t.LastField)
 	}
 	return b.String()
 }

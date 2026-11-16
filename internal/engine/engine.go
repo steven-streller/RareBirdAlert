@@ -89,6 +89,8 @@ type State struct {
 	Seen map[string]map[string]time.Time `json:"seen"`
 	// Learning holds, per airport, when the engine first had data for it.
 	Learning map[string]time.Time `json:"learning"`
+	// Fleet holds the aircraft of the fleet by config.FleetAircraft.Key.
+	Fleet map[string]FleetTrack `json:"fleet"`
 }
 
 // NewState returns an empty state.
@@ -97,6 +99,7 @@ func NewState() State {
 		Tracks:   map[string]Track{},
 		Seen:     map[string]map[string]time.Time{},
 		Learning: map[string]time.Time{},
+		Fleet:    map[string]FleetTrack{},
 	}
 }
 
@@ -105,6 +108,7 @@ func (s State) clone() State {
 	c := NewState()
 	maps.Copy(c.Tracks, s.Tracks)
 	maps.Copy(c.Learning, s.Learning)
+	maps.Copy(c.Fleet, s.Fleet)
 	for airport, types := range s.Seen {
 		c.Seen[airport] = maps.Clone(types)
 	}

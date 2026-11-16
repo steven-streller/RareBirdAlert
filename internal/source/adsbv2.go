@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -81,7 +82,30 @@ type adsbAircraft struct {
 // Fetch implements Source.
 func (c *ADSBv2) Fetch(ctx context.Context, area Area) (Result, error) {
 	radius := min(max(area.RadiusNM, 1), maxRadiusNM)
-	url := fmt.Sprintf("%s/v2/point/%.4f/%.4f/%.0f", c.base, area.Lat, area.Lon, radius)
+	return c.get(ctx, fmt.Sprintf("%s/v2/point/%.4f/%.4f/%.0f", c.base, area.Lat, area.Lon, radius))
+}
+
+// Ways to look up single aircraft, wherever they are.
+const (
+	ByRegistration = "reg"
+	ByHex          = "hex"
+)
+
+// Lookup asks for single aircraft by registration or by ICAO 24-bit address:
+// GET {base}/v2/reg/{a,b,...} or {base}/v2/hex/{a,b,...}. The answer holds
+// only those that are being received right now.
+//
+// Registrations are matched in any letter case, but only in the spelling of
+// the aircraft database, which has the dash: "D-EZIP", not "DEZIP".
+func (c *ADSBv2) Lookup(ctx context.Context, by string, values []string) (Result, error) {
+	escaped := make([]string, len(values))
+	for i, v := range values {
+		escaped[i] = url.PathEscape(v)
+	}
+	return c.get(ctx, fmt.Sprintf("%s/v2/%s/%s", c.base, by, strings.Join(escaped, ",")))
+}
+
+func (c *ADSBv2) get(ctx context.Context, url string) (Result, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return Result{}, &Error{Kind: KindNetwork, Err: err}
@@ -145,7 +169,7 @@ func (in adsbAircraft) convert(source string, base time.Time) (aircraft.Aircraft
 		a.Lat, a.Lon, a.HasPos = *in.Lat, *in.Lon, true
 	}
 	if in.GS != nil {
-		a.GroundSpeedKt = *in.GS
+		a.GroundSpeedKt, a.HasSpeed = *in.GS, true
 	}
 
 	alt := strings.TrimSpace(string(in.AltBaro))

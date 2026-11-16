@@ -71,11 +71,20 @@ type rig struct {
 
 	adsbCalls  int
 	adsbStatus func(call int) int
+
+	// fleet answers the lookups of single aircraft, given the request path.
+	fleet       func(path string) string
+	fleetLookup []string
 }
 
 func (r *rig) adsb(w http.ResponseWriter, req *http.Request) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.fleet != nil && !strings.HasPrefix(req.URL.Path, "/v2/point/") {
+		r.fleetLookup = append(r.fleetLookup, req.URL.Path)
+		_, _ = w.Write([]byte(r.fleet(req.URL.Path)))
+		return
+	}
 	r.adsbCalls++
 	if r.adsbStatus != nil {
 		if status := r.adsbStatus(r.adsbCalls); status != 200 {
@@ -84,7 +93,7 @@ func (r *rig) adsb(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	s := r.script[r.index]
+	s := r.script[min(r.index, len(r.script)-1)]
 	lat := 53.0468
 	lon := 8.7893 - s.distNM/(60*math.Cos(lat*math.Pi/180))
 	alt := fmt.Sprint(s.altFt)

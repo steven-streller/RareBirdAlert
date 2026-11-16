@@ -37,6 +37,9 @@ const (
 	EventAircraftGoAround     = "aircraft.go_around"
 	EventAircraftDeparted     = "aircraft.departed"
 	EventAircraftLost         = "aircraft.lost"
+	EventFlightStarted        = "flight.started"
+	EventFlightPosition       = "flight.position"
+	EventFlightEnded          = "flight.ended"
 	EventNotificationSent     = "notification.sent"
 	EventNotificationFailed   = "notification.failed"
 	EventNotificationRejected = "notification.rejected"
@@ -57,6 +60,7 @@ var Events = []string{
 	EventCycleCompleted, EventSourcePolled, EventSourcePollFailed, EventSourceRecovered,
 	EventUpstreamOutage, EventUpstreamRecovered,
 	EventAircraftApproach, EventAircraftLanded, EventAircraftGoAround, EventAircraftDeparted, EventAircraftLost,
+	EventFlightStarted, EventFlightPosition, EventFlightEnded,
 	EventNotificationSent, EventNotificationFailed, EventNotificationRejected, EventNotificationDryRun,
 	EventPhotoFound, EventPhotoMissing, EventPhotoFailed,
 	EventHTTPListening, EventHTTPError, EventLibraryLog,

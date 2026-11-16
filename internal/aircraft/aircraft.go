@@ -27,6 +27,7 @@ type Aircraft struct {
 	HasAlt        bool    `json:"has_alt"`
 	OnGround      bool    `json:"on_ground"`
 	GroundSpeedKt float64 `json:"gs_kt"`
+	HasSpeed      bool    `json:"has_speed,omitempty"` // the source reported a ground speed, which may be 0
 	VRateFPM      int     `json:"vrate_fpm"`
 	HasVRate      bool    `json:"has_vrate"`
 
@@ -84,8 +85,8 @@ func Merge(groups []Group) []Aircraft {
 				if in.HasVRate {
 					m.VRateFPM, m.HasVRate = in.VRateFPM, true
 				}
-				if in.GroundSpeedKt > 0 {
-					m.GroundSpeedKt = in.GroundSpeedKt
+				if in.HasSpeed || in.GroundSpeedKt > 0 {
+					m.GroundSpeedKt, m.HasSpeed = in.GroundSpeedKt, m.HasSpeed || in.HasSpeed
 				}
 			} else if !m.HasPos && in.HasPos {
 				m.Lat, m.Lon, m.HasPos = in.Lat, in.Lon, true

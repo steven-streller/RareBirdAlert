@@ -111,6 +111,66 @@ func (w *Watch) Count() int {
 	return n
 }
 
+// FleetAircraft is one aircraft of the fleet.
+type FleetAircraft struct {
+	Reg  string // as the aircraft database spells it, "D-EZIP"
+	Name string // free text, such as the type; may be empty
+	Hex  string // ICAO 24-bit address, empty if not configured
+}
+
+// Key identifies the aircraft in the state file.
+func (f FleetAircraft) Key() string { return RegKey(f.Reg) }
+
+// Fleet is the list of aircraft that are followed wherever they fly, and
+// whose flights are recorded.
+type Fleet struct {
+	// Home lists the airfields at which a landing is nothing to report.
+	// Without one, landings are never pushed.
+	Home     []string
+	Aircraft []FleetAircraft
+}
+
+// IsHome reports whether the airfield is one of the home airfields.
+func (f *Fleet) IsHome(icao string) bool { return slices.Contains(f.Home, icao) }
+
+// Find returns the fleet entry for an aircraft a source reported. The ICAO
+// address decides if it is configured, the registration otherwise.
+func (f *Fleet) Find(a aircraft.Aircraft) (FleetAircraft, bool) {
+	for _, e := range f.Aircraft {
+		if e.Hex != "" && e.Hex == a.Hex {
+			return e, true
+		}
+	}
+	if key := RegKey(a.Reg); key != "" {
+		for _, e := range f.Aircraft {
+			if e.Key() == key {
+				return e, true
+			}
+		}
+	}
+	return FleetAircraft{}, false
+}
+
+// Registrations lists the registrations of the fleet.
+func (f *Fleet) Registrations() []string {
+	out := make([]string, 0, len(f.Aircraft))
+	for _, e := range f.Aircraft {
+		out = append(out, e.Reg)
+	}
+	return out
+}
+
+// RegKey is a registration reduced to what identifies it: upper case, no
+// dash and no spaces. "D-EZIP", "dezip" and "D EZIP" are the same aircraft.
+func RegKey(reg string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '-' || r == ' ' {
+			return -1
+		}
+		return r
+	}, strings.ToUpper(strings.TrimSpace(reg)))
+}
+
 // Novelty makes the first approach of an aircraft type at an airport
 // interesting. It needs a learning period first: until it is over, types are
 // only recorded, because on the first day every type would be new.
@@ -166,11 +226,14 @@ type Config struct {
 
 	Airports []Airport
 	Watch    Watch
+	Fleet    Fleet
 	Novelty  Novelty
 	Detect   Detection
 
 	NotifyApproach Rule
 	NotifyLanded   Rule
+	// NotifyAway is used for the landing of a fleet aircraft away from home.
+	NotifyAway Rule
 	// NotifyNovelty is used instead of NotifyApproach and NotifyLanded for
 	// aircraft that are only interesting because their type is new.
 	NotifyNovelty Rule
@@ -269,6 +332,7 @@ type rawConfig struct {
 	Sources          list         `yaml:"sources"`
 	Airports         []rawAirport `yaml:"airports"`
 	Watch            rawWatch     `yaml:"watch"`
+	Fleet            rawFleet     `yaml:"fleet"`
 	Novelty          rawNovelty   `yaml:"novelty"`
 	Detection        rawDetection `yaml:"detection"`
 	Notify           rawNotify    `yaml:"notify"`
@@ -295,6 +359,17 @@ type rawWatch struct {
 	Interesting      bool `yaml:"interesting"`
 }
 
+type rawFleet struct {
+	Home     list               `yaml:"home"`
+	Aircraft []rawFleetAircraft `yaml:"aircraft"`
+}
+
+type rawFleetAircraft struct {
+	Registration scalar `yaml:"registration"`
+	Name         scalar `yaml:"name"`
+	Hex          scalar `yaml:"hex"`
+}
+
 type rawNovelty struct {
 	Enabled        bool      `yaml:"enabled"`
 	LearningPeriod *duration `yaml:"learning_period"`
@@ -310,12 +385,18 @@ type rawNotify struct {
 	Approach rawRule `yaml:"approach"`
 	Landed   rawRule `yaml:"landed"`
 	Novelty  rawRule `yaml:"novelty"`
+	Away     rawRule `yaml:"away_landing"`
 }
 
 type rawRule struct {
 	Priority *int   `yaml:"priority"`
 	Sound    scalar `yaml:"sound"`
 }
+
+var (
+	registration = regexp.MustCompile(`^[A-Z0-9]{1,4}-?[A-Z0-9]{1,6}$`)
+	germanNoDash = regexp.MustCompile(`^D[A-Z]{4}$`)
+)
 
 var typeCode = regexp.MustCompile(`^[A-Z0-9]{2,4}$`)
 
@@ -386,6 +467,7 @@ func Parse(data []byte) (*Config, error) {
 	c.Airports = parseAirports(raw.Airports, fail)
 	c.Watch = parseWatch(raw.Watch, fail)
 	c.Watch.Military, c.Watch.Interesting = raw.Watch.Military, raw.Watch.Interesting
+	c.Fleet = parseFleet(raw.Fleet, fail)
 
 	c.Novelty = Novelty{Enabled: raw.Novelty.Enabled, LearningPeriod: DefaultNoveltyLearning}
 	if v := raw.Novelty.LearningPeriod; v != nil {
@@ -417,6 +499,7 @@ func Parse(data []byte) (*Config, error) {
 	c.NotifyApproach = parseRule("notify.approach", raw.Notify.Approach, 0, fail)
 	c.NotifyLanded = parseRule("notify.landed", raw.Notify.Landed, -1, fail)
 	c.NotifyNovelty = parseRule("notify.novelty", raw.Notify.Novelty, -1, fail)
+	c.NotifyAway = parseRule("notify.away_landing", raw.Notify.Away, 0, fail)
 
 	if len(problems) > 0 {
 		return nil, errors.New(strings.Join(problems, "; "))
@@ -551,6 +634,55 @@ func parseWatch(r rawWatch, fail func(string, ...any)) Watch {
 		w.Operators = append(w.Operators, v)
 	}
 	return w
+}
+
+func parseFleet(r rawFleet, fail func(string, ...any)) Fleet {
+	var f Fleet
+	for _, s := range r.Home {
+		icao := strings.ToUpper(strings.TrimSpace(string(s)))
+		if _, ok := airports.Lookup(icao); !ok {
+			fail("fleet.home: %q ist nicht in der eingebauten Liste deutscher Flugplätze", string(s))
+			continue
+		}
+		if !slices.Contains(f.Home, icao) {
+			f.Home = append(f.Home, icao)
+		}
+	}
+	if len(f.Home) > 0 && len(r.Aircraft) == 0 {
+		fail("fleet: home ist gesetzt, aber unter aircraft steht kein Flugzeug")
+	}
+	seen := map[string]bool{}
+	for i, in := range r.Aircraft {
+		reg := strings.ToUpper(strings.TrimSpace(string(in.Registration)))
+		if !registration.MatchString(reg) {
+			fail("fleet.aircraft: Eintrag %d: registration fehlt oder ist kein Kennzeichen wie D-EZIP, angegeben %q", i+1, string(in.Registration))
+			continue
+		}
+		// The sources find a registration only in the spelling of the
+		// aircraft database, which has the dash. For German registrations
+		// its place is known.
+		if germanNoDash.MatchString(reg) {
+			reg = "D-" + reg[1:]
+		}
+		e := FleetAircraft{Reg: reg, Name: strings.TrimSpace(string(in.Name))}
+		if !strings.Contains(reg, "-") && strings.TrimSpace(string(in.Hex)) == "" {
+			fail("fleet.aircraft: %s: das Kennzeichen braucht den Bindestrich (etwa D-EZIP), sonst finden es die Quellen nicht; alternativ hex angeben", reg)
+			continue
+		}
+		if v := strings.TrimSpace(string(in.Hex)); v != "" {
+			if e.Hex = aircraft.NormalizeHex(v); e.Hex == "" {
+				fail("fleet.aircraft: %s: %q ist kein ICAO24-Hexcode (6 Hexziffern)", reg, v)
+				continue
+			}
+		}
+		if seen[e.Key()] {
+			fail("fleet.aircraft: %s steht mehrfach in der Liste", reg)
+			continue
+		}
+		seen[e.Key()] = true
+		f.Aircraft = append(f.Aircraft, e)
+	}
+	return f
 }
 
 func parseRule(key string, r rawRule, defaultPriority int, fail func(string, ...any)) Rule {

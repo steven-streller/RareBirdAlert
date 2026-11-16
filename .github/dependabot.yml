@@ -2,27 +2,34 @@
 # für die Actions (Commit), die Go-Module und das Basis-Image im Dockerfile
 # (Tag und Digest).
 #
+# Alle drei kommen gebündelt in einem Pull Request je Woche. Ist er grün,
+# führt der Workflow ihn selbst zusammen, und das nächtliche Release
+# veröffentlicht ihn, siehe .github/workflows/ci.yml.
+#
 # Drei Festlegungen kennt Dependabot nicht, sie werden von Hand angehoben und
 # stehen alle in .github/workflows/ci.yml: das Runner-Image (runs-on), buildx
 # und BuildKit.
 version: 2
+
+multi-ecosystem-groups:
+  dependencies:
+    schedule:
+      interval: weekly
+
 updates:
   - package-ecosystem: github-actions
     directory: /
-    schedule:
-      interval: weekly
-    groups:
-      actions:
-        patterns: ["*"]
+    patterns: ["*"]
+    multi-ecosystem-group: dependencies
 
   - package-ecosystem: gomod
     directory: /
-    schedule:
-      interval: weekly
+    patterns: ["*"]
+    multi-ecosystem-group: dependencies
 
   # Hebt Dependabot das Basis-Image im Dockerfile an, folgt der Workflow von
   # selbst: Er liest die Go-Version dort aus.
   - package-ecosystem: docker
     directory: /
-    schedule:
-      interval: weekly
+    patterns: ["*"]
+    multi-ecosystem-group: dependencies
